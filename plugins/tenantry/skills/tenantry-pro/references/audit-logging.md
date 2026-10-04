@@ -9,19 +9,15 @@ using Microsoft.EntityFrameworkCore;
 using Tenantry;
 using Tenantry.Pro.EfCore;
 
-builder.Services.AddTenantry<string>(tenant => tenant
-    .ResolveFromHeader("X-Tenant-Id")
-    .UseStore<MyTenantStore>()
-    .UsePro(pro => pro.AddAuditLogging(opts =>
-    {
-        opts.Exclude<OutboxMessage>();                          // leave a type out
-        opts.ExcludeProperty<User>(user => user.PasswordHash);  // leave a property out
-    })));
-
-builder.Services.AddDbContext<AppDbContext>(options => options
-    .UseSqlServer(builder.Configuration.GetConnectionString("AppDb"))
-    .UseTenantry());   // audits this context's saves
+// Inside the app's existing AddTenantry(tenant => ...) call, beside its resolvers, validators and store.
+tenant.UsePro(pro => pro.AddAuditLogging(opts =>
+{
+    opts.Exclude<OutboxMessage>();                          // leave a type out
+    opts.ExcludeProperty<User>(user => user.PasswordHash);  // leave a property out
+}));
 ```
+
+Every context whose registration calls `UseTenantry()` is audited; nothing changes in the contexts.
 
 ## Who made the change
 

@@ -4,14 +4,13 @@
 provisioning step, and for every tenant from the migration runner.
 
 ```csharp
-builder.Services.AddTenantry<string>(tenant => tenant
-    .ResolveFromHeader("X-Tenant-Id")
-    .UseStore<MyTenantStore>()
-    .UseConnectionStrings(opts =>
-        opts.GetConnectionString = t => $"Server=.;Database=app_{t.TenantId};Integrated Security=true;TrustServerCertificate=True")
-    .UsePro(pro => pro.AddMigrations<AppDbContext>())
-    .AddDbContextPerTenantDatabase<AppDbContext>((_, options) => options.UseSqlServer()));
+// Inside the app's existing AddTenantry(tenant => ...) call.
+tenant.UsePro(pro => pro.AddMigrations<AppDbContext>());
 ```
+
+The context must be registered so that a tenant's scope gives the tenant's own database or schema: for a database
+per tenant with `UseConnectionStrings` and `AddDbContextPerTenantDatabase`, as in the database-per-tenant skill's
+[registration.md](../../tenantry-database-per-tenant/references/registration.md), or with `UseTenantry()` and [schema per tenant](schema-per-tenant.md).
 
 ## As a deployment step (recommended)
 

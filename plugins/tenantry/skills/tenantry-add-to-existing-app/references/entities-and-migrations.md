@@ -34,6 +34,7 @@ Or keep your own base class and implement the interface. The setter can be priva
 public class Order : AuditableEntity, ITenantEntity<Guid>
 {
     public int Id { get; set; }
+    public string Reference { get; set; } = "";
     public Guid TenantId { get; private set; }
 }
 ```
@@ -46,6 +47,8 @@ Rename the property to `TenantId` and keep the column name and the relationship,
 public class Order : ITenantEntity<Guid>
 {
     public int Id { get; set; }
+    public string Reference { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
     public Guid TenantId { get; private set; }                 // was OrganisationId
     public Organisation? Organisation { get; private set; }
 }
@@ -109,42 +112,59 @@ before the `AlterColumn`.
 ### When the column is new
 
 EF Core generates an `AddColumn` that gives existing rows the key type's default (`Guid.Empty`, `0` or `""`). Tenantry
-treats that value as "no tenant", so those rows are visible to no tenant and cannot be updated. Assign them in the same
-migration, after the `AddColumn` and before any index that includes the column:
+treats that value as "no tenant", so those rows are visible to no tenant and cannot be updated until they are
+assigned.
+
+First ask the user which tenant each existing row belongs to, and do not write the migration until they have
+answered. Rows often take the tenant of a parent row that already has one (an order line its order's); a
+single-customer app being made multi-tenant often puts every existing row in that customer's tenant. There is no safe
+default: a guess puts one customer's rows in another's tenant.
+
+Then assign them in the same migration, after the `AddColumn` and before any index that includes the column, and drop
+the database default the `AddColumn` added, so a row inserted outside EF Core fails instead of silently getting "no
+tenant":
 
 ```csharp
 migrationBuilder.AddColumn<Guid>(
     name: "TenantId",
-    table: "Orders",
+    table: "OrderLines",
     nullable: false,
     defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
-// Every existing order belongs to the first customer.
-migrationBuilder.Sql("""UPDATE "Orders" SET "TenantId" = '8D2C3C1E-6F0E-4A3C-9A43-0F5C2F6A1B01'""");
-
-// Child rows take their parent's tenant.
+// The user's answer: each line belongs to its order's tenant.
 migrationBuilder.Sql("""
     UPDATE "OrderLines" SET "TenantId" =
         (SELECT "TenantId" FROM "Orders" WHERE "Orders"."Id" = "OrderLines"."OrderId")
     """);
+
+// Drop the default AddColumn added.
+migrationBuilder.AlterColumn<Guid>(
+    name: "TenantId",
+    table: "OrderLines",
+    nullable: false,
+    oldClrType: typeof(Guid),
+    oldDefaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 ```
 
 Use the parent's column name in the SQL, which is still the old one (`OrganisationId`, say) when you mapped `TenantId`
-to an existing column.
-
-Which tenant owns the existing rows is the user's decision: ask if it is not obvious (for a single-customer app, it is
-usually that customer, who becomes the first tenant). Write the SQL for the app's database:
+to an existing column. When the user says every existing row belongs to one tenant, the SQL is
+`UPDATE "Orders" SET "TenantId" = '<that tenant's id>'`. Write the SQL for the app's database:
 
 - Double-quoted names work on SQL Server, PostgreSQL and SQLite; MySQL uses backticks.
 - EF Core stores a `Guid` on SQLite as upper-case text, so write the literal in upper case there. SQL Server and
   PostgreSQL accept either case.
 - For `string` keys, the literal is the tenant id as text; for `int` keys, a number.
+- On SQLite, `AlterColumn` rebuilds the table, which EF Core does for you.
 
-Apply it with `dotnet ef database update`, or however the app applies migrations, and check that every row has a
-tenant id that is in the store:
+Apply it with `dotnet ef database update`, or however the app applies migrations, and check that every row names a
+tenant the store has, for each table you changed. With the registry in the same database:
 
 ```sql
-SELECT COUNT(*) FROM "Orders" WHERE "TenantId" = '00000000-0000-0000-0000-000000000000';   -- expect 0
+SELECT COUNT(*) FROM "OrderLines"
+WHERE "TenantId" NOT IN (SELECT "Id" FROM "Organisations");   -- expect 0
 ```
+
+With another store, list the store's tenant ids in the query (`NOT IN ('...', '...')`). A row with the reserved
+default id is counted too, since no tenant has it.
 
 More: https://tenantry.dev/docs/core/efcore-integration#migrations

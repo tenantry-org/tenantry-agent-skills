@@ -4,7 +4,7 @@
 
 Before, with Finbuckle's interface:
 
-```csharp
+```csharp no-compile
 public class AppDbContext : DbContext, IMultiTenantDbContext
 {
     public AppDbContext(IMultiTenantContextAccessor accessor, DbContextOptions<AppDbContext> options)
@@ -75,7 +75,7 @@ cannot track an entity whose key is null, and Tenantry stamps `TenantId` only wh
 ## The migration
 
 ```bash
-dotnet ef migrations add MoveToTenantry
+dotnet ef migrations add MoveToTenantry --context AppDbContext
 ```
 
 It should contain no operations. The model snapshot still changes, because Tenantry makes `TenantId` a concurrency
@@ -88,7 +88,23 @@ token, which changes no column. If the migration:
 
 ## The rest of the context's code
 
-- Drop the placeholder tenant from the design-time factory. `dotnet ef` builds the model with no tenant current.
+- A design-time factory (`IDesignTimeDbContextFactory`) drops its placeholder tenant, since `dotnet ef` builds the
+  model with no tenant current, and calls `UseTenantry()` on the options it builds, so the model it gives the tools,
+  and so the snapshot, has `TenantId` as a concurrency token as the app's does:
+
+  ```csharp
+  using Microsoft.EntityFrameworkCore.Design;
+
+  public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
+  {
+      public AppDbContext CreateDbContext(string[] args) => new(new DbContextOptionsBuilder<AppDbContext>()
+          .UseSqlServer("Server=localhost;Database=app_design;Integrated Security=true;TrustServerCertificate=true")
+          .UseTenantry()
+          .Options);
+  }
+  ```
+
+  Without a factory, `dotnet ef` builds the app's host and uses its registration, which already calls `UseTenantry()`.
 - Code that ignored Finbuckle's named filter names `TenantryQueryFilters.Tenant` instead (EF Core 10).
 - Code that created a context per tenant with Finbuckle's static `Create` uses
   `ITenantScopeFactory<string>.CreateScope(tenant)` and resolves the context from the scope. Like `Create`, it trusts

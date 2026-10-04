@@ -1,13 +1,17 @@
 ---
 name: tenantry-new-app
-description: Creates a new multi-tenant .NET application with Tenantry from the start, either an ASP.NET Core API or a worker service, with EF Core isolation by a TenantId column in a shared database, tenant resolution, access validation and an isolation test. Use when the user starts a new SaaS backend, multi-tenant web API or tenant-aware background worker in .NET and wants tenant isolation built in, or asks for a Tenantry starter or template. For an app that already exists, use tenantry-add-to-existing-app.
+description: Creates a new multi-tenant ASP.NET Core API or .NET worker with Tenantry and EF Core from the start. Use when starting a new SaaS backend or tenant-aware .NET service, or asked for a Tenantry starter.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Written for Tenantry 0.7.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
 metadata:
   tenantry-version: "0.7"
 ---
 
 # A new app with Tenantry
+
+These instructions are for Tenantry 0.7 and later. After adding the packages, check with `dotnet list package`
+that they are 0.7 or later, never 0.6: 0.6 has isolation gaps that 0.7 fixes, and some
+names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 Decide these with the user before writing code, and keep the answers in the README you write for the app:
 
@@ -24,12 +28,13 @@ Decide these with the user before writing code, and keep the answers in the READ
    ```bash
    dotnet new webapi -o src/MyApp          # or: dotnet new worker -o src/MyApp
    cd src/MyApp
-   dotnet add package Tenantry.AspNetCore  # API only
-   dotnet add package Tenantry.EfCore
+   dotnet add package Tenantry.AspNetCore --version 0.7.0  # API only
+   dotnet add package Tenantry.EfCore --version 0.7.0
    dotnet add package Microsoft.EntityFrameworkCore.SqlServer   # or your provider
    ```
 
-   A worker references `Tenantry.Core` and `Tenantry.EfCore` and no ASP.NET Core package.
+   A worker references `Tenantry.Core` and `Tenantry.EfCore` and no ASP.NET Core package. `--version 0.7.0` means
+   0.7.0 or later, so the command fails, rather than installing 0.6, until 0.7.0 is published.
 
 2. Write the entities. Tenant-owned ones derive from `TenantEntity<TKey>` or implement `ITenantEntity<TKey>`; shared
    ones (reference data, the tenant registry) implement nothing. Lead composite indexes with `TenantId`, and make

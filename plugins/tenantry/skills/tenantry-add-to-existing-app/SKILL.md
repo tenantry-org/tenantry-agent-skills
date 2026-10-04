@@ -1,8 +1,8 @@
 ---
 name: tenantry-add-to-existing-app
-description: Adds Tenantry multi-tenancy to an existing ASP.NET Core application that uses EF Core with one shared database, so every query and save is scoped to the current tenant by a TenantId column. Use when the user wants to make an existing .NET web app or API multi-tenant, keep each customer's, organisation's or account's data apart, add tenant isolation or a TenantId to EF Core entities, or install Tenantry.AspNetCore and Tenantry.EfCore in a project that already has a DbContext. For a new project use tenantry-new-app; for a database per tenant use tenantry-database-per-tenant; for workers and console apps use tenantry-non-http.
+description: Adds Tenantry multi-tenancy to an existing ASP.NET Core app that uses EF Core, isolating each tenant's rows in one shared database by a TenantId column. Use when making an existing .NET web app or API multi-tenant, or scoping its EF Core data per customer, organisation or account.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Written for Tenantry 0.7.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
 metadata:
   tenantry-version: "0.7"
 ---
@@ -14,8 +14,13 @@ tenant-owned: `options.UseTenantry()` filters its queries to the current tenant 
 entity is shared by all tenants, and that is intended: reference data, catalogues and the tenant registry stay
 unmarked. On each request, `app.UseTenantry()` resolves the tenant, checks the caller may use it, and makes it current.
 
-Work through the steps in order. Do not skip the inspection or the test: they are how you and the user know the
+Work through the steps in order. Do not skip the inspection or the tests: they are how you and the user know the
 change is complete. Explain each choice to the user in plain words before you make it.
+
+These instructions are for Tenantry 0.7 and later. If the project already references Tenantry (`dotnet list package`)
+at 0.6 or earlier, upgrade every Tenantry package to 0.7 before anything else: 0.6 has isolation gaps that 0.7 fixes,
+and some names used here do not exist in it. What changed:
+https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 ## 1. Inspect the app before changing anything
 
@@ -40,14 +45,16 @@ code, ask the user. Do not guess.
 
 ## 2. Choose the key type and install the packages
 
-Use the type of the existing owner id as `TKey` (`Guid`, `int`, `long` or `string`), and use it everywhere. Check
-the installed Tenantry version with `dotnet list package`: these instructions are for 0.7.
+Use the type of the existing owner id as `TKey` (`Guid`, `int`, `long` or `string`), and use it everywhere.
 
 ```bash
 # In the web project
-dotnet add package Tenantry.AspNetCore
-dotnet add package Tenantry.EfCore
+dotnet add package Tenantry.AspNetCore --version 0.7.0
+dotnet add package Tenantry.EfCore --version 0.7.0
 ```
+
+NuGet reads `--version 0.7.0` as "0.7.0 or later" and restores the lowest such version, so the command fails while
+0.7.0 is not published instead of installing 0.6. `dotnet list package --outdated` then shows newer patches.
 
 A separate project that holds only entities needs `Tenantry.Core` (for `ITenantEntity<TKey>`); one that calls
 `UseTenantry()` on a context's options needs `Tenantry.EfCore`.
@@ -93,15 +100,33 @@ entities and indexes are in [references/entities-and-migrations.md](references/e
 
 ## 7. Call `UseTenantry()` on every context registration
 
+Move the context's registration into a method of the app that both `Program.cs` and the tests call, and call
+`UseTenantry()` there, after any `SaveChanges` interceptors of your own. The tests then check the registration the app
+really runs with. Leave the database provider to the caller:
+
 ```csharp
-builder.Services.AddDbContext<AppDbContext>(options => options
-    .UseSqlServer(connectionString)
-    .UseTenantry());
+using Microsoft.EntityFrameworkCore;
+
+public static class AppDataRegistration
+{
+    public static IServiceCollection AddAppDbContext(
+        this IServiceCollection services, Action<DbContextOptionsBuilder> useDatabase) =>
+        services.AddDbContext<AppDbContext>(options =>
+        {
+            useDatabase(options);
+            options.UseTenantry();
+        });
+}
 ```
 
-Add it to every registration found in step 1, including factories and pooled contexts, after any `SaveChanges`
-interceptors of your own. A context whose options do not call it is not isolated. The `DbContext` class itself needs
-no base class, interface or override.
+```csharp
+// Program.cs
+builder.Services.AddAppDbContext(options => options.UseSqlServer(connectionString));
+```
+
+Do the same for every registration found in step 1, including factories and pooled contexts. A context whose
+options do not call `UseTenantry()` is not isolated. The `DbContext` class itself needs no base class, interface or
+override.
 
 ## 8. Add the migration
 
@@ -121,18 +146,24 @@ backfill them, and what the migration should contain when the column already exi
 - Raw SQL found in step 1: add the tenant predicate yourself
   ([references/not-isolated.md](references/not-isolated.md)).
 
-## 10. Write the isolation test
+## 10. Write both isolation tests
 
-Add the test in [references/isolation-test.md](references/isolation-test.md). It uses the app's own `DbContext` and
-entities on SQLite in memory, and proves that a tenant reads only its rows, that a write naming another tenant is
-refused, that nothing is read or written without a tenant, and that every unmarked entity type is one you meant to
-share.
+Both are required; [references/isolation-test.md](references/isolation-test.md) says what each proves and does not.
+
+1. The model test, [references/isolation-test.md](references/isolation-test.md): the app's `DbContext`, registered by
+   the app's own `AddAppDbContext`, on SQLite in memory. A tenant reads only its rows, a write naming another tenant is
+   refused, nothing is read or written without a tenant, and every unmarked entity type is one you meant to share.
+2. The request test, [references/request-test.md](references/request-test.md): the whole app through
+   `WebApplicationFactory<Program>`. Each tenant's requests see only its data, and requests with no tenant, an unknown
+   tenant or a tenant the caller may not use are refused.
+
+Then remove `UseTenantry()` from `AddAppDbContext` and run the tests once: they must fail. Put it back.
 
 ## 11. Verify
 
 1. `dotnet build` has no new warnings or errors.
 2. The migration's operations are the ones you expect, and the backfill runs.
-3. `dotnet test` passes, including the isolation test.
+3. `dotnet test` passes, including both isolation tests, and they failed with `UseTenantry()` removed.
 4. With the app running, two tenants each see only their own data and their new rows are stamped with their own id,
    a request with no tenant gets `400`, an id the store does not have gets `404` (or `403` once an access validator
    is configured), and a tenant the caller may not use gets `403`.

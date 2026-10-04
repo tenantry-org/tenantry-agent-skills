@@ -10,7 +10,7 @@ The UI thread has a synchronization context. The work you pass to `RunInScopeAsy
 it from, so it can update the UI, and the scope's services are disposed there too, where they were created. Because
 `RunInScopeAsync` returns to that context, await it:
 
-```csharp
+```csharp no-compile
 private async void LoadButton_Click(object sender, RoutedEventArgs e)
 {
     var invoices = await _scopes.RunInScopeAsync(_selectedTenantId, (scope, ct) =>

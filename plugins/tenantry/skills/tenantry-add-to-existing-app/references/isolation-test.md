@@ -1,12 +1,18 @@
-# The isolation test
+# The isolation tests
 
-This test runs the app's own `DbContext` and entities with Tenantry's real services on SQLite in memory. It proves
-four things for the app as it is now:
+Two tests, and the app needs both:
 
-1. A tenant reads only its own rows.
-2. A write that names another tenant is refused.
-3. With no tenant, nothing is read and a tenant-owned write is refused.
-4. Every entity type that is not tenant-owned is one you listed as shared on purpose.
+| Test | Runs | Proves | Does not prove |
+|------|------|--------|----------------|
+| The model test (below) | The app's own `DbContext`, registered through the app's own `AddAppDbContext` method, on SQLite in memory | The registration the app runs with calls `UseTenantry()`; a tenant reads only its own rows; a write naming another tenant is refused; with no tenant nothing is read or written; every unmarked entity type is one you listed as shared | How requests name a tenant, that the access validator refuses a caller, the pipeline order, or what the endpoints do |
+| The request test ([request-test.md](request-test.md)) | The whole app through `WebApplicationFactory<Program>`, with its real registration, store, resolvers and validators, against a test database | Each tenant's requests see only its data; new rows are stamped with the request's tenant; a request with no tenant, an unknown tenant, or a tenant the caller may not use is refused | Raw SQL and `IgnoreQueryFilters()` paths the test does not call, and entity types its endpoints do not touch |
+
+Neither test sees raw SQL, Dapper or `IgnoreQueryFilters()`: check those by reading the code (step 1 of the skill).
+
+The model test only means something if it registers the context the way the app does. That is why step 7 of the
+skill moves the registration into `AddAppDbContext`: the test calls the same method, so removing `UseTenantry()`
+from the app's registration fails the test. Never register the context again in the test with its own
+`AddDbContext(... .UseTenantry())`: such a test passes even when the app's registration has no `UseTenantry()`.
 
 ## The test project
 
@@ -17,13 +23,13 @@ dotnet new xunit -o tests/MyApp.Tests
 dotnet sln add tests/MyApp.Tests          # if the repository has a solution file
 dotnet add tests/MyApp.Tests reference src/MyApp
 dotnet add tests/MyApp.Tests package Microsoft.EntityFrameworkCore.Sqlite --version <the app's EF Core version>
-dotnet add tests/MyApp.Tests package Tenantry.EfCore
+dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.7.0
 ```
 
 Use the same EF Core version as the app, or the restore fails with a downgrade error. If the types the test needs are
 `internal`, add `[assembly: InternalsVisibleTo("MyApp.Tests")]` to the app.
 
-## The test
+## The model test
 
 Replace `AppDbContext`, `Order`, `Organisation`, `Guid` and the shared types with the app's own, and add a `using`
 for the app's namespace. Add one write and one read for each tenant-owned entity type that matters, child types
@@ -105,7 +111,8 @@ public sealed class TenantIsolationTests
         Assert.Equal(SharedOnPurpose.OrderBy(t => t.FullName), unmarked.OrderBy(t => t.FullName));
     }
 
-    // One in-memory SQLite database with the app's model, and Tenantry registered with the two test tenants.
+    // One in-memory SQLite database with the app's model, registered by the app's own AddAppDbContext, and Tenantry
+    // with the two test tenants.
     private sealed class TestDatabase : IAsyncDisposable
     {
         private readonly SqliteConnection _connection;
@@ -129,7 +136,7 @@ public sealed class TenantIsolationTests
 
             var services = new ServiceCollection()
                 .AddTenantry<Guid>(tenant => tenant.UseInMemoryStore([TenantA, TenantB]))
-                .AddDbContext<AppDbContext>(options => options.UseSqlite(connection).UseTenantry())
+                .AddAppDbContext(options => options.UseSqlite(connection))   // the app's own registration
                 .BuildServiceProvider(validateScopes: true);
 
             var db = new TestDatabase(connection, services);
@@ -164,6 +171,11 @@ public sealed class TenantIsolationTests
 }
 ```
 
+## Check that the test can fail
+
+Remove `options.UseTenantry()` from `AddAppDbContext` and run the tests: `ATenantReadsOnlyItsOwnRows` and the others
+must fail. Put the call back. A test that still passes is not testing the app's registration.
+
 ## Adapting it
 
 - No tenant registry in the model: delete the `Organisations` seed and remove `Organisation` from `SharedOnPurpose`.
@@ -174,8 +186,4 @@ public sealed class TenantIsolationTests
 - `CreateScope` trusts the descriptor it is given, which suits a test that holds its own tenants. Never pass it a
   descriptor built from request input in application code.
 
-## Testing a request
-
-The test above checks the model and the EF Core registration it builds. To also check the app's resolution and access
-validation end to end, use `WebApplicationFactory<Program>` and send requests as two tenants:
-https://tenantry.dev/docs/core/testing#requests-webapplicationfactory
+Then write the request test: [request-test.md](request-test.md).

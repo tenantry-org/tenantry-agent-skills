@@ -3,7 +3,7 @@
 An application has exactly one `ITenantStore<TKey>`; registering a second throws. Tenantry has no tenants table of
 its own: the store reads whatever already lists your customers.
 
-```csharp
+```csharp no-compile
 public interface ITenantStore<TKey>
 {
     ValueTask<ITenantDescriptor<TKey>?> GetTenantAsync(TKey tenantId, CancellationToken ct = default);

@@ -9,8 +9,8 @@ user's own.
 ```bash
 dotnet new webapi -o src/MyApp
 cd src/MyApp
-dotnet add package Tenantry.AspNetCore
-dotnet add package Tenantry.EfCore
+dotnet add package Tenantry.AspNetCore --version 0.7.0
+dotnet add package Tenantry.EfCore --version 0.7.0
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite        # or SqlServer, Npgsql
 dotnet add package Microsoft.EntityFrameworkCore.Design        # for dotnet ef
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
@@ -23,8 +23,6 @@ Use the EF Core and ASP.NET Core package versions of the target framework's majo
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Tenantry;
-
-namespace MyApp;
 
 // Tenant-owned: filtered to the current tenant and stamped on insert.
 public class Project : TenantEntity<Guid>
@@ -67,7 +65,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using MyApp;
 using Tenantry;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -129,14 +126,13 @@ tenant entity must not implement `ITenantEntity<TKey>`. See https://tenantry.dev
 dotnet new xunit -o tests/MyApp.Tests
 dotnet add tests/MyApp.Tests reference src/MyApp
 dotnet add tests/MyApp.Tests package Microsoft.EntityFrameworkCore.Sqlite --version <the app's EF Core version>
-dotnet add tests/MyApp.Tests package Tenantry.EfCore
+dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.7.0
 ```
 
 ```csharp
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using MyApp;
 using Tenantry;
 using Tenantry.EfCore;
 using Xunit;

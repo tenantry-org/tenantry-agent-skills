@@ -18,6 +18,8 @@
 Maintenance code that writes across tenants on purpose gets a context of its own:
 
 ```csharp
+using Tenantry.EfCore;
+
 builder.Services.AddDbContext<MaintenanceDbContext>(options => options
     .UseSqlServer(connectionString)
     .UseTenantry(o => o.OnMissingTenant = MissingTenantBehavior.Allow));

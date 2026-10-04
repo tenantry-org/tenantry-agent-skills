@@ -54,7 +54,7 @@ It also registers, as singletons:
 
 ## `AddDbContextPerTenantDatabase<TContext>`
 
-```csharp
+```csharp no-compile
 public static ITenantBuilder AddDbContextPerTenantDatabase<TContext>(
     this ITenantBuilder builder,
     Action<IServiceProvider, DbContextOptionsBuilder> configure,

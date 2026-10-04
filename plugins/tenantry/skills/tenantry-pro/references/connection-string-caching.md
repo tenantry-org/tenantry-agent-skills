@@ -5,13 +5,12 @@ When reading it is expensive (a secrets vault, a configuration database), `pro.C
 tenant's connection string in memory for `Duration` (30 minutes by default).
 
 ```csharp
-builder.Services.AddTenantry<string>(tenant => tenant
-    .UseStore<MyTenantStore>()
-    .UseConnectionStrings(opts => opts.GetConnectionStringAsync = async (t, ct) =>
-        await secretsClient.GetSecretAsync($"connstr-{t.TenantId}", ct))
-    .UsePro(pro => pro.CacheConnectionStrings(o => o.Duration = TimeSpan.FromMinutes(30)))
-    .AddDbContextPerTenantDatabase<AppDbContext>((sp, options) => options.UseSqlServer()));
+// Inside the app's existing AddTenantry(tenant => ...) call, which already has UseConnectionStrings and
+// AddDbContextPerTenantDatabase.
+tenant.UsePro(pro => pro.CacheConnectionStrings(o => o.Duration = TimeSpan.FromMinutes(30)));
 ```
+
+The connection-string registration it caches is Core's: [registration.md](../../tenantry-database-per-tenant/references/registration.md).
 
 - It wraps the provider `UseConnectionStrings` registers (before or after `UsePro`), or one you register before
   `UsePro`. With no provider the app does not start. A provider registered after `UsePro` replaces the cache, and a
@@ -21,8 +20,5 @@ builder.Services.AddTenantry<string>(tenant => tenant
 - Caching does not change which reads work: with only `GetConnectionStringAsync`, synchronous reads still throw, and
   only asynchronous EF Core calls work on the scoped context.
 - `Duration` must be positive; `TimeSpan.MaxValue` caches until you invalidate.
-
-The registration of `UseConnectionStrings` and `AddDbContextPerTenantDatabase` itself is Core's: see the
-`tenantry-database-per-tenant` skill.
 
 More: https://tenantry.dev/docs/pro/database-per-tenant#caching

@@ -43,6 +43,9 @@ without base domains takes it only from a host with at least three labels, so li
 
 ## The tenant type and store
 
+For Finbuckle's EF Core store (`EFCoreStoreDbContext<TTenantInfo>`), whose table is `TenantInfo` with a string `Id`
+key, a required `Identifier` with a unique index, and a nullable `Name`:
+
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Tenantry;
@@ -51,15 +54,28 @@ public class AppTenant : ITenantDescriptor<string>
 {
     public string TenantId { get; set; } = "";     // Finbuckle's Id
     public string Identifier { get; set; } = "";   // what requests carry
-    public string Name { get; set; } = "";
+    public string? Name { get; set; }              // nullable, as in Finbuckle's table
+
+    string ITenantDescriptor.Name => Name ?? Identifier;
 }
 
-public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbContext(options)
+// The store's context keeps its class name, so its existing migrations and snapshot still compile. It now derives
+// from DbContext, and maps AppTenant to Finbuckle's table as it is.
+public class TenantStoreDbContext(DbContextOptions<TenantStoreDbContext> options) : DbContext(options)
 {
     public DbSet<AppTenant> Tenants => Set<AppTenant>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<AppTenant>(tenant =>
+        {
+            tenant.ToTable("TenantInfo");
+            tenant.HasKey(t => t.TenantId);
+            tenant.Property(t => t.TenantId).HasColumnName("Id");
+            tenant.HasIndex(t => t.Identifier).IsUnique();
+        });
 }
 
-public sealed class AppTenantStore(CatalogDbContext db) : ITenantStore<string>
+public sealed class AppTenantStore(TenantStoreDbContext db) : ITenantStore<string>
 {
     public async ValueTask<ITenantDescriptor<string>?> GetTenantAsync(string tenantId, CancellationToken ct = default) =>
         await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.TenantId == tenantId, ct);
@@ -72,10 +88,22 @@ public sealed class AppTenantStore(CatalogDbContext db) : ITenantStore<string>
 }
 ```
 
-This replaces Finbuckle's EF Core store. Map `AppTenant` to the table Finbuckle's store used. `UseInMemoryStore` finds
-tenants by id only, so it replaces Finbuckle's in-memory store only where each identifier equals its id. Add
-`CacheTenants()` to avoid a database read per request. Tenantry builds in no configuration, distributed cache, HTTP
-remote or echo store, and has no methods that add or remove tenants: write the store over whatever held them.
+Once the project builds without Finbuckle (after the skill's step 5), check the mapping matches the table:
+
+```bash
+dotnet ef migrations add MoveTenantStoreToTenantry --context TenantStoreDbContext
+```
+
+The migration's `Up` and `Down` must be empty; only the snapshot changes. An operation in it means the mapping
+differs from the table: a dropped index, a column made required or renamed. Fix the mapping, remove the migration
+(`dotnet ef migrations remove --context TenantStoreDbContext`) and generate it again. Keep the empty migration, so the
+snapshot matches the new model. If the tenant type has more properties than Finbuckle's (yours derived from
+`TenantInfo`), map each to its existing column the same way.
+
+`UseInMemoryStore` finds tenants by id only, so it replaces Finbuckle's in-memory store only where each identifier
+equals its id. Add `CacheTenants()` to avoid a database read per request. Tenantry builds in no configuration,
+distributed cache, HTTP remote or echo store, and has no methods that add or remove tenants: write the store over
+whatever held them.
 
 ## What has no equivalent
 

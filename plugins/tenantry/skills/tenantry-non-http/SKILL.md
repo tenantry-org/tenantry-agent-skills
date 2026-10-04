@@ -1,8 +1,8 @@
 ---
 name: tenantry-non-http
-description: Runs code as a Tenantry tenant where there is no HTTP request, so EF Core queries are filtered and saves are stamped for that tenant. Use for .NET worker services, BackgroundService and IHostedService classes, queue and message consumers, scheduled jobs, console and CLI tools, and WPF, WinForms, MAUI or Avalonia desktop apps that use Tenantry, or when a background job loses the tenant, a query returns nothing outside a request, or the user asks how to choose between RunInScopeAsync, CreateScope and ITenantContextSetter.MakeCurrent.
+description: Runs code as a Tenantry tenant outside HTTP requests, in workers, BackgroundService and hosted services, queue consumers, scheduled jobs, console tools and desktop apps. Use when Tenantry work has no request, or a job or worker loses its tenant.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10. Written for Tenantry 0.7.
+compatibility: .NET 8, 9 or 10. Tenantry 0.7 or later.
 metadata:
   tenantry-version: "0.7"
 ---
@@ -13,23 +13,28 @@ In a web request, `app.UseTenantry()` makes the tenant current. Anywhere else, y
 work. Until it does, no tenant is current: tenant-owned queries return no rows and tenant-owned saves throw
 `TenantNotResolvedException`. That is Tenantry failing closed, not a bug to work around.
 
+These instructions are for Tenantry 0.7 and later. If the project references Tenantry at 0.6 or earlier
+(`dotnet list package`), upgrade every Tenantry package to 0.7 first: 0.6 has isolation gaps that 0.7 fixes, and some
+names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
+
 ## 1. Register Tenantry without ASP.NET Core
 
 ```bash
-dotnet add package Tenantry.Core
-dotnet add package Tenantry.EfCore     # when the host uses EF Core
+dotnet add package Tenantry.Core --version 0.7.0
+dotnet add package Tenantry.EfCore --version 0.7.0     # when the host uses EF Core
 ```
 
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddTenantry<Guid>(tenant => tenant.UseStore<AppTenantStore>());   // or UseInMemoryStore([...])
+builder.Services.AddTenantry<Guid>(tenant => tenant.UseStore<OrganisationTenantStore>());   // or UseInMemoryStore([...])
 
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseSqlServer(connectionString)
     .UseTenantry());
 ```
 
+`--version 0.7.0` means 0.7.0 or later, so the command fails, rather than installing 0.6, until 0.7.0 is published.
 A host that serves web requests too keeps its one `AddTenantry` call; the same registration serves both. Register a
 store when any code looks tenants up by id: `ITenantLookup<TKey>` and `RunInScopeAsync` throw
 `InvalidOperationException` without one.

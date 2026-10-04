@@ -11,12 +11,14 @@ call, and a host-side `UseTenantry` call in the library's own configuration. The
 call is missing.
 
 ```csharp
-// Hangfire
-builder.Services.AddTenantry<string>(tenant => tenant
-    .ResolveFromHeader("X-Tenant-Id")
-    .UseStore<MyTenantStore>()
-    .UsePro(pro => pro.AddHangfirePropagation()));
+// Hangfire. Inside the app's existing AddTenantry(tenant => ...) call:
+tenant.UsePro(pro => pro.AddHangfirePropagation());
+```
 
+```csharp
+using Hangfire;
+
+// Beside it, where the app registers Hangfire:
 builder.Services.AddHangfire((sp, config) => config
     .UseInMemoryStorage()      // or your storage
     .UseTenantry(sp));

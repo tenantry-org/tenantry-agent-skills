@@ -58,9 +58,9 @@ export TENANTRY_GITHUB_PAT=ghp_your_token
 ## 3. Packages
 
 ```bash
-dotnet add package Tenantry.AspNetCore     # Tenantry Core, from nuget.org
-dotnet add package Tenantry.Pro            # from the private feed
-dotnet add package Tenantry.Pro.EfCore     # schema per tenant, provisioning, migrations, audit, health checks
+dotnet add package Tenantry.AspNetCore --version 0.7.0 # Tenantry Core, from nuget.org
+dotnet add package Tenantry.Pro --version 0.7.0 # from the private feed
+dotnet add package Tenantry.Pro.EfCore --version 0.7.0 # schema per tenant, provisioning, migrations, audit, health checks
 ```
 
 The integrations are `Tenantry.Pro.Hangfire`, `Tenantry.Pro.Quartz`, `Tenantry.Pro.MassTransit` and
@@ -68,13 +68,12 @@ The integrations are `Tenantry.Pro.Hangfire`, `Tenantry.Pro.Quartz`, `Tenantry.P
 
 ## 4. The licence key
 
-`UsePro` reads the key from the `Tenantry:License` setting when the application starts:
+Add `UsePro` to the app's existing `AddTenantry` call, inside its `tenant => ...` lambda, and keep everything already
+there (resolvers, access validators, store). It reads the key from the `Tenantry:License` setting when the
+application starts:
 
 ```csharp
-builder.Services.AddTenantry<string>(tenant => tenant
-    .ResolveFromHeader("X-Tenant-Id")
-    .UseStore<MyTenantStore>()
-    .UsePro());   // the licence key comes from Tenantry:License
+tenant.UsePro();   // the licence key comes from Tenantry:License
 ```
 
 Locally, from the application's project directory:

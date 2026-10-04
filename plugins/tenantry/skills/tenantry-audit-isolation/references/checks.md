@@ -26,6 +26,8 @@ List every entity type of each context (the `DbSet` properties, `modelBuilder.En
   directly (`db.OrderLines`, `db.Set<OrderLine>()`) or that an endpoint can write. Its set returns every tenant's rows.
 - Medium: the same type reached only through a filtered parent's navigation today.
 - High: a type with a `TenantId` property that does not implement the interface: it looks isolated and is not.
+  Not a finding: the tenant registry entity, whose `TenantId` is its own key (it must stay unmarked, see below), and
+  membership or access tables that say which tenants a user may use and are read with no tenant current.
 - High: the tenant registry entity implements `ITenantEntity<TKey>` (no tenant can ever be resolved), or a membership
   table is tenant-owned when the access validator reads it with no tenant current.
 - Low: no test or `OnUnmarkedEntityType` setting lists the types shared on purpose, so a new unmarked type would go

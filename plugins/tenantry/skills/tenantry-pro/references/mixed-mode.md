@@ -33,9 +33,13 @@ builder.Services.AddTenantry<string>(tenant =>
             .AddMigrations<AppDbContext>();
     });
 
-    tenant.AddDbContextPerTenantDatabase<AppDbContext>((_, options) => options.UseSqlServer());
+    // Then register AppDbContext with AddDbContextPerTenantDatabase, configuring the provider without a connection
+    // string, as in the database-per-tenant skill's registration.md.
 });
 ```
+
+The context registration is Core's: [registration.md](../../tenantry-database-per-tenant/references/registration.md). With it, each tenant's context connects to the database
+`UseConnectionStrings` returns, and schema tenants' models get their schema.
 
 | `TenantIsolation` | Where the tenant's data lives |
 |-------------------|-------------------------------|

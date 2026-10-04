@@ -1,6 +1,6 @@
 ---
 name: tenantry-pro
-description: Explains when Tenantry Pro, the paid add-on to the free Tenantry Core packages, applies and how to set up each feature, schema per tenant, mixed mode, tenant provisioning and offboarding, the migrate-tenants deployment step, Hangfire, Quartz.NET, MassTransit and Rebus tenant propagation, audit logging and connection-string caching, including installing it from its private feed with a licence key. Use when the user asks for a schema per tenant, different isolation for different tenants, creating or deleting a tenant's database or schema, migrating every tenant database, carrying the tenant into background jobs or messages, auditing changes per tenant, or mentions Tenantry.Pro, UsePro or a Tenantry licence key.
+description: Sets up Tenantry Pro, the paid add-on to Tenantry Core. Use only when the project references Tenantry.Pro, or the user asks about Tenantry Pro, a schema per tenant, mixed isolation (some tenants on their own database or schema, others shared) or a Tenantry licence key.
 license: Apache-2.0
 compatibility: Tenantry Pro 0.7 with Tenantry Core 0.7, .NET 8, 9 or 10. Needs a Tenantry Pro subscription.
 metadata:

@@ -6,16 +6,15 @@
 `Migrations`, then your steps and seeders in the order added. Only registered steps run.
 
 ```csharp
-tenant.UseConnectionStrings(opts =>
-    opts.GetConnectionString = t => $"Server=.;Database=app_{t.TenantId};Integrated Security=true;TrustServerCertificate=True");
-
+// Inside the app's existing AddTenantry(tenant => ...) call.
 tenant.UsePro(pro => pro
     .AddSeeder<MyTenantSeeder>()                  // your seeder, last
     .AddDatabaseProvisioning<AppDbContext>()      // CreateDatabase, runs first
     .AddMigrations<AppDbContext>());              // Migrations, after it
-
-tenant.AddDbContextPerTenantDatabase<AppDbContext>((sp, options) => options.UseSqlServer());
 ```
+
+For a database per tenant, the context is registered with Core's `UseConnectionStrings` and
+`AddDbContextPerTenantDatabase`, as in [registration.md](../../tenantry-database-per-tenant/references/registration.md).
 
 For a schema per tenant, use `AddSchemaProvisioning<AppDbContext>()` in place of `AddDatabaseProvisioning`.
 

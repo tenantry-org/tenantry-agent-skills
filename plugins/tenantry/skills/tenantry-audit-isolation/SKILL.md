@@ -1,8 +1,8 @@
 ---
 name: tenantry-audit-isolation
-description: Reviews a .NET application that already uses Tenantry for tenant isolation gaps and reports each finding with its file and line, severity and fix. Checks DbContext registrations, unmarked entities, raw SQL, IgnoreQueryFilters, resolution without access validation, pipeline order, background work, trusted descriptors, caches and tests. Use when the user asks to audit, review or security-check a multi-tenant app built on Tenantry, asks whether one tenant can see another's data, or before releasing a change to a Tenantry app.
+description: Reviews a .NET app that already uses Tenantry for tenant isolation gaps and reports findings by file and line. Use when asked to audit, review or security-check a Tenantry app, or whether one tenant can see another's data.
 license: Apache-2.0
-compatibility: Written for Tenantry 0.7. Needs read access to the application's source.
+compatibility: Tenantry 0.7 or later. Needs read access to the application's source.
 metadata:
   tenantry-version: "0.7"
 ---
@@ -24,6 +24,10 @@ a tenant it does not belong to, or makes tenant code run with the wrong tenant o
 4. If the app has tests, run them. Note whether an isolation test exists (one that writes as one tenant and reads as
    another); its absence is a finding.
 5. Write the findings as described under [Writing the findings](#writing-the-findings), most severe first.
+
+A Tenantry package at 0.6 or earlier is a finding of its own (High): 0.6 has isolation gaps that 0.7 fixes
+(https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). These checks are written for 0.7 and later;
+report the version, recommend the upgrade, and run the checks anyway.
 
 ## Severity
 

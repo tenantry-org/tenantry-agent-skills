@@ -8,8 +8,8 @@ id), and the worker runs it with `ITenantScopeFactory<TKey>.RunInScopeAsync`.
 ```bash
 dotnet new worker -o src/MyWorker
 cd src/MyWorker
-dotnet add package Tenantry.Core
-dotnet add package Tenantry.EfCore
+dotnet add package Tenantry.Core --version 0.7.0
+dotnet add package Tenantry.EfCore --version 0.7.0
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite        # or your provider
 ```
 
@@ -17,7 +17,6 @@ dotnet add package Microsoft.EntityFrameworkCore.Sqlite        # or your provide
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using MyWorker;
 using Tenantry;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -43,9 +42,13 @@ builder.Build().Run();
 ```csharp
 using Tenantry;
 
-namespace MyWorker;
-
 public sealed record InvoiceRequested(Guid TenantId, string Number);
+
+// The app's queue client, behind an interface of its own.
+public interface IInvoiceQueue
+{
+    IAsyncEnumerable<InvoiceRequested> ReadAllAsync(CancellationToken ct);
+}
 
 public sealed class InvoiceHandler(AppDbContext db)
 {
@@ -69,17 +72,18 @@ public sealed class InvoiceConsumer(IInvoiceQueue queue, ITenantScopeFactory<Gui
                 await scopes.RunInScopeAsync(message.TenantId, (scope, ct) =>
                     scope.ServiceProvider.GetRequiredService<InvoiceHandler>().HandleAsync(message, ct), stoppingToken);
             }
-            catch (TenantNotFoundException ex)
+            catch (TenantNotResolvedException ex)
             {
-                logger.LogWarning("Dropping invoice {Number} for tenant {TenantId}, which no longer exists",
-                    message.Number, ex.TenantId);
+                // TenantNotFoundException (no such tenant) and TenantInactiveException (suspended) both derive from
+                // it. Catching it keeps one message for a missing or suspended tenant from stopping the host.
+                logger.LogWarning(ex, "Dropping invoice {Number} for tenant {TenantId}", message.Number, message.TenantId);
             }
         }
     }
 }
 ```
 
-`IInvoiceQueue` stands for the app's queue client. `Invoice` is a `TenantEntity<Guid>` and `AppDbContext` a plain
+`Invoice` is a `TenantEntity<Guid>` and `AppDbContext` a plain
 `DbContext`, as in [api.md](api.md).
 
 The rules for scopes, loops over every tenant, consumers whose framework opens the DI scope, and the test for this

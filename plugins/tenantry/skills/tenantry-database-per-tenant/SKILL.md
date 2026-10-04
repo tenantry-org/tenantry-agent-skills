@@ -1,8 +1,8 @@
 ---
 name: tenantry-database-per-tenant
-description: Gives each tenant its own database with Tenantry, connecting every EF Core DbContext to the current tenant's database through UseConnectionStrings and AddDbContextPerTenantDatabase, pooled or not. Use when the user wants a database per tenant, a connection string per tenant or customer, tenants routed to different database servers, or tenant data that must be backed up, restored or placed apart, in an ASP.NET Core, worker or console app. For a shared database with a TenantId column use tenantry-add-to-existing-app or tenantry-new-app; for a schema per tenant or mixed isolation use tenantry-pro.
+description: Gives each tenant its own database with Tenantry Core, connecting every EF Core DbContext to the current tenant's database. Use when the user wants a database or connection string per tenant in a .NET app.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Written for Tenantry 0.7.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
 metadata:
   tenantry-version: "0.7"
 ---
@@ -17,12 +17,18 @@ The exact registration, its options and its rules are in one file,
 [references/registration.md](references/registration.md). Read it before writing the registration. (It is kept in
 one file because the registration may change in a later release.)
 
+These instructions are for Tenantry 0.7 and later. If the project references Tenantry at 0.6 or earlier
+(`dotnet list package`), upgrade every Tenantry package to 0.7 first: 0.6 has isolation gaps that 0.7 fixes, and some
+names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
+
 ## Steps
 
 1. Inspect the app as for a shared database: the target framework and EF Core version, every `DbContext` and where it
    is registered, how requests name the tenant, and raw SQL. Note which contexts hold per-tenant data and which hold
    shared data (the tenant registry, reference data): only the per-tenant ones move to a database per tenant.
-2. Install the packages: `Tenantry.EfCore`, plus `Tenantry.AspNetCore` in a web app (`Tenantry.Core` comes with them).
+2. Install the packages with `dotnet add package <name> --version 0.7.0`: `Tenantry.EfCore`, plus `Tenantry.AspNetCore`
+   in a web app (`Tenantry.Core` comes with them). `--version 0.7.0` means 0.7.0 or later, so the command fails,
+   rather than installing 0.6, until 0.7.0 is published.
 3. Put what identifies each tenant's database on the tenant: a database name built from the id, or a connection
    string or secret name on your own descriptor type, read with `t.As<AppTenant>()`. Write the store as for a shared
    database, over the registry in the shared database

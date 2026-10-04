@@ -34,7 +34,9 @@ default, which matches no rows but does not throw.
 own (soft delete, say):
 
 ```csharp
-db.Orders.IgnoreQueryFilters([TenantryQueryFilters.Tenant])
+using Tenantry.EfCore;
+
+var orders = await db.Orders.IgnoreQueryFilters([TenantryQueryFilters.Tenant]).ToListAsync();
 ```
 
 When the database itself must enforce isolation, for example against direct SQL access, add row-level security in the
