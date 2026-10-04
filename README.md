@@ -36,8 +36,18 @@ Or inside a session:
 The skills then load when a task matches their description, or you can run one by name, for example
 `/tenantry:tenantry-add-to-existing-app`.
 
-To turn the plugin on for everyone who works in a repository, install it with `--scope project`, which records it in
-the repository's `.claude/settings.json`; each collaborator still runs the install command once.
+To turn the plugin on for everyone who works in a repository, add the marketplace and the plugin with
+`--scope project`, from the repository:
+
+```bash
+claude plugin marketplace add tenantry-org/tenantry-agent-skills --scope project
+claude plugin install tenantry@tenantry-agent-skills --scope project
+```
+
+and commit `.claude/settings.json`. It then names the marketplace under `extraKnownMarketplaces` and the plugin under
+`enabledPlugins`. A collaborator's Claude Code registers the marketplace once they trust the folder, and loads the
+plugin from it. Enabling the plugin alone is not enough: without the marketplace entry, a collaborator's Claude Code
+does not know where the plugin comes from.
 
 To get updates, run `claude plugin update tenantry@tenantry-agent-skills`, or turn on auto-update for the marketplace
 under **Marketplaces** in `/plugin`. The plugin has no version number, so each new commit is an update.
@@ -62,11 +72,14 @@ For agents that read only an `AGENTS.md` (or `CLAUDE.md`), either point them at 
 
 ## Versions
 
-The skills were checked against Tenantry Core and Tenantry Pro 0.7, which were not yet released when they were
-written. Every API name was checked against the source, and the `tenantry-add-to-existing-app` and `tenantry-non-http`
-skills were followed step by step on a sample app and worker built against Tenantry Core packed from source. Until 0.7
-is on NuGet, `dotnet add package` installs 0.6, where some names differ; the skills tell the agent to check the
-installed version.
+The skills are for Tenantry Core and Tenantry Pro 0.7 and later. They were written and checked against 0.7 before it
+was released, using packages built from the source.
+
+Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.6 or earlier
+first: 0.6 has isolation gaps that 0.7 fixes, and some names the skills use do not exist in it
+([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
+line pins `--version 0.7.0`, which NuGet reads as "0.7.0 or later", so it fails until 0.7.0 is published rather than
+installing 0.6.
 
 ## Checking the skills
 
@@ -74,10 +87,38 @@ installed version.
 node scripts/validate.mjs
 ```
 
-It checks the marketplace and plugin manifests against the fields Claude Code documents, the frontmatter of every
-skill against the Agent Skills specification, every relative link and anchor, the writing conventions, and that no
-API name removed before 0.7 appears. It needs Node.js 20 or later and nothing else. CI runs it on every push and pull
-request. `claude plugin validate .` runs Claude Code's own checks.
+It needs Node.js 20 or later and nothing else, and checks:
+
+- the marketplace and plugin manifests against the fields Claude Code's marketplace and manifest references list;
+- each skill's frontmatter against the Agent Skills specification's fields and limits;
+- that every relative link resolves, and every link to a heading in this repository finds it;
+- that links to tenantry.dev name a docs page that exists, and, given the docs of the release the skills target
+  (`--core-docs <tenantry-core>/docs --pro-docs <tenantry-pro-docs>/docs`), that the heading they link to exists
+  there;
+- that no file names an API, namespace or package Tenantry 0.7 no longer has (`scripts/removed-names.txt`, copied
+  from the Tenantry repositories' own lists);
+- that every line that adds a Tenantry package with `dotnet add` pins `--version`;
+- that no C# example registers a resolver the caller controls (header, subdomain, host, route, query string, or one
+  of your own) without an access validator;
+- no em dashes and no list items that start with a bold label; and that every workflow action is pinned to a commit.
+
+`--online` also requests each linked docs page.
+
+```bash
+scripts/check-snippets.sh
+```
+
+builds every C# block in the skills and AGENTS.md against the Tenantry packages, with the .NET 10 SDK, and reports
+errors at the block's line. It builds against `TENANTRY_VERSION` (0.7.0) from nuget.org, or a folder of packages in
+`TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES` names a folder
+of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another library's code, or
+a signature shown for its shape).
+
+CI runs both on every push and pull request. Until Tenantry 0.7.0 is published, the docs headings are checked by page
+name only and the code blocks are not built in CI, as neither the 0.7 docs tags nor the packages exist yet; each
+prints a notice and starts checking on its own once they do. Before then they were run locally, against docs and
+packages built from the Tenantry repositories' master branches. `claude plugin validate .` runs Claude Code's own
+checks.
 
 ## Reporting a mistake
 
