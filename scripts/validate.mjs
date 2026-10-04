@@ -337,6 +337,8 @@ function anchors(file) {
   return ids;
 }
 
+// The docs pages the site serves (/docs/core/<page>, /docs/pro/<page>). With --core-docs and --pro-docs, each page and
+// heading is checked against those docs folders instead: give them the docs of the release the skills target.
 const CORE_PAGES = new Set([
   'index', 'access-control', 'aot-and-trimming', 'aspnetcore-identity', 'aspnetcore-integration',
   'authentication-per-tenant', 'caching', 'changelog', 'compatibility', 'core-concepts', 'diagnostics',
@@ -350,10 +352,59 @@ const PRO_PAGES = new Set([
   'testing', 'troubleshooting',
 ]);
 
-const OLD_API = [
-  { pattern: /\.Use\(/, name: '.Use( (the tenant context method is MakeCurrent)' },
-  { pattern: /UseNoTenant/, name: 'UseNoTenant (now MakeNoTenantCurrent)' },
-];
+function option(name) {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : resolve(process.argv[index + 1]);
+}
+const docsFolders = { core: option('--core-docs'), pro: option('--pro-docs') };
+for (const [group, folder] of Object.entries(docsFolders)) {
+  if (folder && !existsSync(folder)) errors.push(`--${group}-docs ${folder} does not exist`);
+}
+
+// Names that no longer exist (scripts/removed-names.txt).
+const removedNames = readFileSync(join(root, 'scripts', 'removed-names.txt'), 'utf8')
+  .split(/\r?\n/)
+  .map((line) => line.split('#')[0].trim())
+  .filter((line) => line.length > 0)
+  .map((line) => {
+    const arrow = line.indexOf('=>');
+    const name = (arrow === -1 ? line : line.slice(0, arrow)).trim();
+    const replacement = arrow === -1 ? undefined : line.slice(arrow + 2).trim();
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = name.startsWith('.') ? new RegExp(escaped) : new RegExp(`(?<![\\w.])${escaped}(?![\\w])`);
+    return { name, replacement, pattern };
+  });
+
+function checkRemovedNames(file, line, number) {
+  for (const { name, replacement, pattern } of removedNames) {
+    if (pattern.test(line)) {
+      error(file, `line ${number} names ${name}, which Tenantry 0.7 does not have${replacement ? `; use ${replacement}` : ''}`);
+    }
+  }
+}
+
+// Resolvers that read a value the caller chooses. A code block that registers one must also register an access
+// validator, or any caller could act as any tenant; ResolveFromClaim and ResolveFromPropagationHeader read values the
+// caller cannot choose.
+const CALLER_CHOSEN = /\.(ResolveFromHeader|ResolveFromSubdomain|ResolveFromHost|ResolveFromRouteValue|ResolveFromQueryString|UseResolver)\b/;
+const VALIDATOR = /\.ValidateTenantAccess(ByClaim)?\b/;
+
+function codeBlocks(text) {
+  const blocks = [];
+  let block;
+  text.split(/\r?\n/).forEach((line, index) => {
+    const marker = /^\s*(```+|~~~+)\s*([^\s`]*)(.*)$/.exec(line);
+    if (marker && !block) {
+      block = { fence: marker[1], language: marker[2], meta: marker[3], start: index + 1, lines: [] };
+    } else if (marker && marker[1].startsWith(block.fence[0]) && marker[1].length >= block.fence.length && marker[2] === '') {
+      blocks.push(block);
+      block = undefined;
+    } else if (block) {
+      block.lines.push(line);
+    }
+  });
+  return blocks;
+}
 
 const docsLinks = new Set();
 
@@ -362,11 +413,22 @@ function checkMarkdown(file) {
   const lines = text.split(/\r?\n/);
 
   lines.forEach((line, index) => {
-    if (line.includes('—')) error(file, `line ${index + 1} has an em dash`);
-    for (const { pattern, name } of OLD_API) {
-      if (pattern.test(line)) error(file, `line ${index + 1} uses an API name Tenantry 0.7 removed: ${name}`);
+    if (line.includes('\u2014')) error(file, `line ${index + 1} has an em dash`);
+    checkRemovedNames(file, line, index + 1);
+    // Unpinned, dotnet add package installs the newest release, which before 0.7.0 is 0.6, with isolation gaps.
+    if (/\bdotnet add\b.*\bpackage Tenantry[\w.]*/.test(line) && !/--version \S+/.test(line)) {
+      error(file, `line ${index + 1} adds a Tenantry package without --version`);
     }
   });
+
+  for (const block of codeBlocks(text)) {
+    if (!/^(csharp|cs|c#)$/i.test(block.language)) continue;
+    const code = block.lines.join('\n');
+    const resolver = CALLER_CHOSEN.exec(code);
+    if (resolver && !VALIDATOR.test(code)) {
+      error(file, `line ${block.start}: the code block registers ${resolver[1]} and no access validator`);
+    }
+  }
 
   for (const { number, text: line } of prose(text)) {
     if (/^\s*(?:[-*+]|\d+\.)\s+\*\*[^*]+\*\*/.test(line)) error(file, `line ${number} starts a list item with a bold label`);
@@ -397,16 +459,24 @@ function checkLink(file, number, target) {
 
 function checkDocsLink(file, number, url) {
   if (url === 'https://tenantry.dev/docs') return;
-  const match = /^https:\/\/tenantry\.dev\/docs\/(core|pro)(?:\/([a-z0-9-]+))?\/?(#[a-z0-9-]+)?$/.exec(url);
+  const match = /^https:\/\/tenantry\.dev\/docs\/(core|pro)(?:\/([a-z0-9-]+))?\/?(?:#([a-z0-9-]+))?$/.exec(url);
   if (!match) {
     error(file, `line ${number} links to the docs outside /docs/core/<page> or /docs/pro/<page>: ${url}`);
     return;
   }
-  const [, group, page = 'index'] = match;
-  if (!(group === 'core' ? CORE_PAGES : PRO_PAGES).has(page)) {
-    error(file, `line ${number} links to a docs page that does not exist: ${url}`);
-  }
+  const [, group, page = 'index', anchor] = match;
   docsLinks.add(url.split('#')[0]);
+  const folder = docsFolders[group];
+  if (!folder) {
+    if (!(group === 'core' ? CORE_PAGES : PRO_PAGES).has(page)) {
+      error(file, `line ${number} links to a docs page that does not exist: ${url}`);
+    }
+    return;
+  }
+  if (page === 'changelog') return; // made by the site from the releases' changelogs
+  const source = join(folder, page === 'index' ? 'README.md' : `${page}.md`);
+  if (!existsSync(source)) error(file, `line ${number} links to a docs page that ${folder} does not have: ${url}`);
+  else if (anchor && !anchors(source).has(anchor)) error(file, `line ${number} links to a heading ${source} does not have: ${url}`);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -433,9 +503,10 @@ const skillCount = checkSkills(plugins);
 const files = walk(root);
 for (const file of files.filter((f) => f.endsWith('.md'))) checkMarkdown(file);
 for (const file of files.filter((f) => f.endsWith('.json'))) {
-  const text = readFileSync(file, 'utf8');
-  if (text.includes('—')) error(file, 'has an em dash');
-  for (const { pattern, name } of OLD_API) if (pattern.test(text)) error(file, `uses an API name Tenantry 0.7 removed: ${name}`);
+  readFileSync(file, 'utf8').split(/\r?\n/).forEach((line, index) => {
+    if (line.includes('\u2014')) error(file, `line ${index + 1} has an em dash`);
+    checkRemovedNames(file, line, index + 1);
+  });
 }
 checkWorkflows();
 
@@ -455,4 +526,8 @@ if (errors.length > 0) {
   console.error(`\n${errors.length} problem(s) found.`);
   process.exit(1);
 }
-console.log(`OK: ${plugins.length} plugin(s), ${skillCount} skill(s), ${files.filter((f) => f.endsWith('.md')).length} Markdown file(s), ${docsLinks.size} docs page(s) linked${online ? ' and reachable' : ''}.`);
+const checkedAgainst = Object.entries(docsFolders).filter(([, folder]) => folder).map(([group]) => group);
+console.log(`OK: ${plugins.length} plugin(s), ${skillCount} skill(s), ${files.filter((f) => f.endsWith('.md')).length} Markdown file(s), ` +
+  `${docsLinks.size} docs page(s) linked${online ? ' and reachable' : ''}` +
+  (checkedAgainst.length ? `, pages and headings checked against the ${checkedAgainst.join(' and ')} docs given.` :
+    '; docs headings not checked (no --core-docs or --pro-docs).'));

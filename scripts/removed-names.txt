@@ -1,0 +1,123 @@
+# API, namespace and package names that Tenantry 0.7 no longer has, which no file in this repository may name
+# (scripts/validate.mjs). Copied from Tenantry Core's eng/common/removed-names.txt and Tenantry Pro's
+# eng/removed-names.txt on their master branches before the 0.7.0 release; update this file from them when they change.
+# One name per line, then optionally " => " and what replaces it. A name matches as a whole identifier or dotted name.
+# A name that starts with "." matches only as a method call: ".Use(" matches "tenantContext.Use(tenant)".
+
+# Renamed in 0.7, but too common a word to match on its own.
+.Use( => ITenantContextSetter.MakeCurrent, or ITenantPropagator.MakeCurrent
+# IConnectionStringCache's methods, removed with it in Tenantry Pro 0.7.
+.Invalidate( => ITenantInvalidator<TKey>.InvalidateAsync
+.InvalidateAll( => ITenantInvalidator<TKey>.InvalidateAllAsync
+
+# Tenantry Core (eng/common/removed-names.txt)
+AddTenantryCore => AddTenantry
+IAspNetCoreTenantBuilder => ITenantBuilder
+Tenantry.Core.Exceptions => the Tenantry namespace
+Tenantry.Core.Stores => the Tenantry namespace
+Tenantry.Core.Extensions => Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.AspNetCore.Extensions => Microsoft.AspNetCore.Builder (no using needed)
+Tenantry.EfCore.Extensions => Microsoft.EntityFrameworkCore (no using needed)
+Tenantry.AspNetCore.Attributes => Tenantry.AspNetCore
+Tenantry.AspNetCore.Resolution => Tenantry.AspNetCore
+Tenantry.Core.MissingTenantBehavior => Tenantry.EfCore.MissingTenantBehavior
+ITenantServiceScope => ITenantScope, which ITenantScopeFactory creates
+ITenantScoped => ITenantEntity
+TenantScoped => TenantEntity
+ITenantStoreAccessor => ITenantLookup
+ITenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
+TenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
+AddTenantConnectionStrings => tenant.UseConnectionStrings
+DetectSpoofedWrites
+EntityTypeName => TenantIsolationViolationException.TypeName
+MultiTenantDbContext => options.UseTenantry() on a plain DbContext
+ITenantAwareDbContext => options.UseTenantry() on a plain DbContext
+ApplyTenantFilters => options.UseTenantry()
+AddTenantInterceptors => options.UseTenantry()
+AddEfCoreIsolation => tenant.ConfigureEfCoreIsolation
+AddTenantDbContextPool => tenant.AddDbContextPerTenantDatabase
+__TenantryFilter__ => TenantryQueryFilters.Tenant
+TenantIds.IsUnset => TenantIds.IsReserved
+ITenantStoreCache => ITenantInvalidator
+TenantConnectionStringProvider => UseConnectionStrings(options => …); resolve ITenantConnectionStringProvider, and wrap it with DecorateConnectionStrings
+UseNoTenant => ITenantContextSetter.MakeNoTenantCurrent
+
+# Tenantry Pro (eng/removed-names.txt)
+Tenantry.Pro.HealthChecks => Tenantry.Pro.EfCore
+Tenantry.Pro.EfCore.SqlServer => Tenantry.Pro.EfCore, which works with your context's EF Core provider
+Tenantry.Pro.EfCore.Npgsql => Tenantry.Pro.EfCore, which works with your context's EF Core provider
+Tenantry.Pro.EfCore.MySql => Tenantry.Pro.EfCore, which works with your context's EF Core provider
+Tenantry.Pro.Migrations => Tenantry.Pro.EfCore
+Tenantry.Pro.EfCore.Audit => Tenantry.Pro.EfCore
+WithMigrationOrchestration => pro.AddMigrations
+MigrationOrchestratorService => ITenantMigrationRunner
+MigrationStatusTracker => ITenantMigrationRunner.GetStatusAsync
+runAtStartup => OnStartup in pro.AddMigrations
+failStartupOnMigrationError => OnStartup in pro.AddMigrations
+AddSchemaPerTenantCaching => options.UseTenantry(), with pro.UseSchemaPerTenant
+ISchemaNameResolver => pro.UseSchemaPerTenant(o => o.GetSchemaName = …)
+SchemaPerTenantCachingOptions => SchemaPerTenantOptions
+ITenantLifecycleManager => ITenantProvisioner
+TenantLifecycleOptions => TenantProvisioningOptions
+AddQuartzTenantScope => pro.AddQuartzPropagation() and q.UseTenantry()
+TenantryMeter => ASP.NET Core's request metrics, which Tenantry Core's tenant.TagRequestMetrics() tags with the tenant
+ConnectionStringEncryptionOptions
+ConnectionStringEncryptionMode
+IConnectionStringProtector
+UseDataProtectionEncryption
+UseLicenseCheck => the licence check at startup
+LicenseEnforcement => the licence check at startup
+Tenantry:Licence => Tenantry:License
+Tenantry__Licence => Tenantry__License
+WithLicence => the Tenantry:License setting, or pro.UseLicenseKey
+Tenantry.Pro.BackgroundServices => the Tenantry.Pro namespace
+Tenantry.Pro.Exceptions => the Tenantry.Pro namespace
+Tenantry.Pro.Licensing => the Tenantry.Pro namespace
+Tenantry.Pro.Lifecycle => the Tenantry.Pro namespace
+Tenantry.Pro.Strategies => the Tenantry.Pro namespace
+Tenantry.Pro.AspNetCore.Telemetry => Tenantry Core's tenant.TagRequestMetrics()
+Tenantry.Pro.EfCore.Strategies => the Tenantry.Pro.EfCore namespace
+Tenantry.Pro.EfCore.Migrations => the Tenantry.Pro.EfCore namespace
+Tenantry.Pro.EfCore.Extensions => Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.Pro.Hangfire.Extensions => Hangfire's namespace, and Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.Pro.MassTransit.Extensions => MassTransit's namespace, and Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.Pro.Quartz.Extensions => Quartz's namespace, and Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.Pro.Rebus.Extensions => Rebus's namespaces, and Microsoft.Extensions.DependencyInjection (no using needed)
+UseDatabasePerTenant => Tenantry Core's tenant.UseConnectionStrings and tenant.AddDbContextPerTenantDatabase
+DatabasePerTenantOptions => Tenantry Core's tenant.UseConnectionStrings
+TenantStrategy => TenantIsolation
+GetStrategyForTenant => pro.UseMixedMode(o => o.GetIsolation = …)
+MixedStrategyResolver => the UseConnectionStrings delegate
+AddLifecycleManagement => pro.ConfigureProvisioning
+DatabaseProvisioningService => ITenantProvisioner, with pro.AddDatabaseProvisioning
+SchemaProvisioningService => ITenantProvisioner, with pro.AddSchemaProvisioning
+SchemaProvisioningOptions.ConnectionString
+ITenantInfrastructureProvisioner => pro.AddDatabaseProvisioning or pro.AddSchemaProvisioning
+ITenantMigrator => pro.AddMigrations
+CompletedUpTo => TenantProvisioningResult.Steps
+TenantProvisioningStep => TenantProvisioningResult.Steps
+UseAuditLogging => pro.AddAuditLogging, with options.UseTenantry()
+AddTenantryDatabaseCheck => AddTenantDatabaseCheck
+AddTenantryMigrationCheck => AddTenantMigrationCheck
+AddHangfireTenantFilter => pro.AddHangfirePropagation() and config.UseTenantry(sp)
+UseTenantryHangfire => pro.AddHangfirePropagation() and config.UseTenantry(sp)
+AddMassTransitTenantFilters => pro.AddMassTransitPropagation() and cfg.UseTenantry(context)
+AddTenantryConsumeFilter => pro.AddMassTransitPropagation() and cfg.UseTenantry(context)
+UseTenantryPro => cfg.UseTenantry(context) for MassTransit, o.UseTenantry(sp) for Rebus
+AddRebusTenantSteps => pro.AddRebusPropagation() and o.UseTenantry(sp)
+TenantContextPropagation
+TenantPropagationOutcome
+TenantPropagationDecision
+TenantJobData => TenantPropagation.HeaderName
+storeAccessor => tenantLookup
+Tenantry.Pro.TenantPropagation => Tenantry.TenantPropagation, in Tenantry.Core
+UseTenantryMetrics => Tenantry Core's tenant.TagRequestMetrics()
+ForTenant => WithTenant, on Hangfire's IBackgroundJobClient
+SetTenant => WithTenant, on MassTransit's SendContext
+TenantProvisioningStepResult => TenantLifecycleStepResult
+TenantProvisioningStepStatus => TenantLifecycleStepStatus
+Tenantry.Pro.AspNetCore => Tenantry Core's tenant.TagRequestMetrics(), in Tenantry.AspNetCore
+AddTenantMetrics => Tenantry Core's tenant.TagRequestMetrics()
+TenantMetricsOptions => the function Tenantry Core's tenant.TagRequestMetrics() takes
+IConnectionStringCache => ITenantInvalidator<TKey>.InvalidateAsync
+ITenantPropagator.Use => ITenantPropagator.MakeCurrent

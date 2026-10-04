@@ -13,15 +13,49 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The release the skills are written for. Its docs and its packages are what the links and code blocks are checked
+  # against. Until it is published, those two checks print a notice and pass; they start checking on their own the
+  # day it is, so a mistake shows up then rather than being hidden by a setting someone has to remember to change.
+  TENANTRY_VERSION: 0.7.0
+
 jobs:
   validate:
-    name: Manifests, skills and links
+    name: Manifests, skills, links and removed names
     runs-on: ubuntu-latest
     steps:
       # Actions are pinned to a commit, with the version in a comment; Dependabot keeps both up to date, and
       # validate.mjs fails on an action that is not pinned.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      - run: node scripts/validate.mjs
+      - name: Fetch the docs of the release the skills target
+        id: docs
+        run: |
+          for repo in tenantry-core tenantry-pro-docs; do
+            if ! git clone --quiet --depth 1 --branch "v$TENANTRY_VERSION" "https://github.com/tenantry-org/$repo" "$RUNNER_TEMP/$repo"; then
+              echo "::notice::$repo has no v$TENANTRY_VERSION tag yet, so links to the docs are checked by page name only."
+              exit 0
+            fi
+          done
+          echo "args=--core-docs $RUNNER_TEMP/tenantry-core/docs --pro-docs $RUNNER_TEMP/tenantry-pro-docs/docs" >> "$GITHUB_OUTPUT"
+      - run: node scripts/validate.mjs ${{ steps.docs.outputs.args }}
+
+  snippets:
+    name: Code blocks build against Tenantry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      # Builds the Tenantry Core blocks against the packages on nuget.org. The tenantry-pro skill's blocks need the Pro
+      # packages, which are on a private feed, so they are built locally (scripts/check-snippets.sh).
+      - run: scripts/check-snippets.sh
+        env:
+          SKIP_UNPUBLISHED: 1
