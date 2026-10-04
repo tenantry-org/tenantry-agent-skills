@@ -1,0 +1,13 @@
+{
+  "name": "tenantry",
+  "displayName": "Tenantry",
+  "description": "Skills for adding Tenantry to ASP.NET Core, EF Core, worker and desktop applications, and for reviewing an existing setup for isolation gaps",
+  "author": {
+    "name": "Tenantry",
+    "url": "https://tenantry.dev"
+  },
+  "homepage": "https://github.com/tenantry-org/tenantry-agent-skills",
+  "repository": "https://github.com/tenantry-org/tenantry-agent-skills",
+  "license": "Apache-2.0",
+  "keywords": ["tenantry", "dotnet", "aspnetcore", "efcore", "multi-tenancy"]
+}

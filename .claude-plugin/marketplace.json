@@ -1,0 +1,17 @@
+{
+  "name": "tenantry-agent-skills",
+  "description": "Agent skills for adding Tenantry multi-tenancy to .NET applications",
+  "owner": {
+    "name": "Tenantry",
+    "url": "https://tenantry.dev"
+  },
+  "plugins": [
+    {
+      "name": "tenantry",
+      "source": "./plugins/tenantry",
+      "description": "Skills for adding Tenantry to ASP.NET Core, EF Core, worker and desktop applications, and for reviewing an existing setup for isolation gaps",
+      "category": "development",
+      "tags": ["dotnet", "aspnetcore", "efcore", "multi-tenancy"]
+    }
+  ]
+}

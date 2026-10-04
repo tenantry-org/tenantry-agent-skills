@@ -1,0 +1,250 @@
+# Tenantry guidance for coding agents
+
+Instructions for adding Tenantry, a multi-tenancy library for ASP.NET Core and EF Core, to a .NET application. This
+file holds the same guidance as the skills in [plugins/tenantry/skills](plugins/tenantry/skills), in one place, for
+agents that do not load skills. It is written for Tenantry 0.7 (`Tenantry.Core`, `Tenantry.EfCore`,
+`Tenantry.AspNetCore`) and Tenantry Pro 0.7. Check the version a project uses with `dotnet list package`; for an
+earlier version, read that version's docs at https://tenantry.dev/docs (the version menu), as some names differ.
+
+## How Tenantry isolates data
+
+- An entity that implements `ITenantEntity<TKey>` (or derives from `TenantEntity<TKey>`) is tenant-owned. Every other
+  entity is shared by all tenants, by design: reference data, catalogues, the tenant registry and membership tables
+  stay unmarked.
+- `options.UseTenantry()` on a context's options adds a query filter to every tenant-owned type, stamps `TenantId` on
+  insert, rejects writes to another tenant's rows, and makes `TenantId` part of every `UPDATE` and `DELETE`.
+- With no tenant current, tenant-owned queries return nothing and tenant-owned writes throw
+  `TenantNotResolvedException`.
+- `app.UseTenantry()` resolves each request's tenant, checks the caller may use it, and makes it current.
+- Outside requests, code makes the tenant current with `ITenantScopeFactory<TKey>`.
+- Not isolated: `Database.SqlQuery`, `SqlQueryRaw`, `ExecuteSql`, `ExecuteSqlRaw`, `ExecuteSqlInterpolated`,
+  `IgnoreQueryFilters()`, SQL on `Database.GetDbConnection()` (Dapper, ADO.NET), and any context whose options do not
+  call `UseTenantry()`. `FromSql` on a tenant-owned entity is filtered.
+
+## Rules
+
+1. Never resolve the tenant from a value the caller controls (header, subdomain, host, route) without an access
+   validator such as `ValidateTenantAccessByClaim("tenant_id")`. `ResolveFromQueryString` is for development only.
+2. Mark every entity whose rows belong to a tenant, child rows included. An unmarked child's set returns every
+   tenant's rows.
+3. Never set `TenantId` in application code. Tenantry stamps it.
+4. Call `UseTenantry()` on every registration of every context with tenant-owned entities, after your own
+   `SaveChanges` interceptors.
+5. `app.UseTenantry()` goes after `app.UseAuthentication()` and before `app.UseAuthorization()` and the endpoints.
+6. Work that starts from a tenant id runs with `RunInScopeAsync(id, ...)`. `CreateScope(tenant)` and
+   `ITenantContextSetter<TKey>.MakeCurrent(tenant)` trust the descriptor they are given: pass them only a descriptor
+   read from the store.
+7. Add the tenant predicate yourself to raw SQL, and keep `IgnoreQueryFilters()` to admin code behind authorization.
+8. Ask the user when it is unclear which entities belong to a tenant or which tenant owns rows already in the database.
+9. Write a test that writes as one tenant and reads as another before calling the work done.
+10. Tenantry Pro is a paid package. Do not add it, its feed or a licence key until the user confirms a subscription.
+
+## Adding Tenantry to an existing ASP.NET Core and EF Core app
+
+1. Inspect first and write down, with file paths: target frameworks and EF Core versions; every `DbContext` and every
+   `AddDbContext`, `AddDbContextPool`, `AddDbContextFactory`, `AddPooledDbContextFactory` and `OnConfiguring`; every
+   entity and whether its rows belong to one customer (look for `OrganisationId`, `AccountId`, `TenantId`); what
+   identifies the customer on a request today; authentication and claims; raw SQL and `IgnoreQueryFilters`; background
+   work.
+2. Use the existing owner id's type as `TKey`. Install `Tenantry.AspNetCore` and `Tenantry.EfCore`.
+3. Write a store over the existing organisations table, or start with `UseInMemoryStore`. The registry entity must not
+   implement `ITenantEntity<TKey>`:
+
+   ```csharp
+   public sealed record OrganisationTenant(Guid TenantId, string Name, bool IsActive) : ITenantDescriptor<Guid>;
+
+   public sealed class OrganisationTenantStore(AppDbContext db) : ITenantStore<Guid>
+   {
+       public async ValueTask<ITenantDescriptor<Guid>?> GetTenantAsync(Guid tenantId, CancellationToken ct = default) =>
+           await db.Organisations.AsNoTracking().Where(o => o.Id == tenantId)
+               .Select(o => new OrganisationTenant(o.Id, o.Name, o.IsActive)).SingleOrDefaultAsync(ct);
+
+       public async ValueTask<IReadOnlyList<ITenantDescriptor<Guid>>> GetAllTenantsAsync(CancellationToken ct = default) =>
+           await db.Organisations.AsNoTracking()
+               .Select(o => new OrganisationTenant(o.Id, o.Name, o.IsActive)).ToListAsync<ITenantDescriptor<Guid>>(ct);
+   }
+   ```
+
+   Implement `FindByIdentifierAsync` too when requests name tenants by a slug or domain rather than the id.
+4. Choose resolution: `ResolveFromClaim("org_id")` when each token carries one tenant; otherwise
+   `ResolveFromHeader`, `ResolveFromSubdomain`, `ResolveFromHost` (last) or `ResolveFromRouteValue` with an access
+   validator (`ValidateTenantAccessByClaim`, or `ValidateTenantAccess<TValidator>()` over a membership table).
+5. Register and add the middleware:
+
+   ```csharp
+   builder.Services.AddTenantry<Guid>(tenant => tenant
+       .ResolveFromHeader("X-Tenant-Id")
+       .ValidateTenantAccessByClaim("tenant_id")
+       .UseStore<OrganisationTenantStore>()
+       .RequireTenantByDefault()
+       .ValidateTenantActivity(t => t is OrganisationTenant { IsActive: true }));
+
+   builder.Services.AddDbContext<AppDbContext>(options => options
+       .UseSqlServer(connectionString)
+       .UseTenantry());
+
+   app.UseAuthentication();
+   app.UseTenantry();
+   app.UseAuthorization();
+
+   app.MapGet("/health", () => "ok").AllowMissingTenant();
+   ```
+
+6. Mark entities. For an existing owner column, rename the property and keep the column:
+
+   ```csharp
+   public class Project : ITenantEntity<Guid>
+   {
+       public int Id { get; set; }
+       public Guid TenantId { get; private set; }                 // was OrganisationId
+       public Organisation? Organisation { get; private set; }
+   }
+
+   modelBuilder.Entity<Project>(project =>
+   {
+       project.Property(p => p.TenantId).HasColumnName("OrganisationId");
+       project.HasOne(p => p.Organisation).WithMany().HasForeignKey(p => p.TenantId);
+       project.HasIndex(p => new { p.TenantId, p.Name }).IsUnique();   // unique per tenant
+   });
+   ```
+
+   For a type with no owner column, derive from `TenantEntity<TKey>`. Mark the root of an inheritance hierarchy; owned types
+   follow their owner. Lead composite indexes with `TenantId`.
+7. `dotnet ef migrations add AddTenantry`, and read it. A new `TenantId` column gives existing rows the key type's
+   default, which names no tenant: assign them in the migration, after the `AddColumn`, with SQL such as
+   `UPDATE "Tasks" SET "TenantId" = (SELECT "OrganisationId" FROM "Projects" WHERE "Projects"."Id" = "Tasks"."ProjectId")`.
+   EF Core stores a `Guid` on SQLite as upper-case text. For an existing owner column, expect no column operations.
+8. Fix what breaks: remove code that set the owner id by hand; load entities before changing them instead of
+   `Update(new Entity { Id = id })`; add the tenant predicate to raw SQL (`WHERE "TenantId" = {tenants.CurrentTenantId}`).
+9. Write the isolation test (below), then run `dotnet build`, `dotnet test`, and the app with two tenants.
+
+The full procedure, with references for stores, resolution, entities and the test:
+[plugins/tenantry/skills/tenantry-add-to-existing-app](plugins/tenantry/skills/tenantry-add-to-existing-app/SKILL.md).
+
+## The isolation test
+
+On SQLite in memory with the app's own `DbContext` (packages `Microsoft.EntityFrameworkCore.Sqlite` at the app's EF
+Core version, and `Tenantry.EfCore`):
+
+```csharp
+var connection = new SqliteConnection("Data Source=:memory:");
+await connection.OpenAsync();
+await using var services = new ServiceCollection()
+    .AddTenantry<Guid>(tenant => tenant.UseInMemoryStore([TenantA, TenantB]))
+    .AddDbContext<AppDbContext>(options => options.UseSqlite(connection).UseTenantry())
+    .BuildServiceProvider(validateScopes: true);
+var scopes = services.GetRequiredService<ITenantScopeFactory<Guid>>();
+```
+
+Then: create the schema in a plain scope (`services.CreateAsyncScope()`, which sets no tenant); add a row as tenant A
+and one as tenant B, each in its own `scopes.CreateScope(tenant)`; assert tenant A reads only its row; assert a row
+whose `TenantId` is set to B, added in A's scope, throws `TenantIsolationViolationException` with `Kind` `EntityWrite`;
+assert a plain scope reads nothing and its save throws `TenantNotResolvedException`; and assert
+`TenantModel.FindUnisolatedEntityTypes(db.Model)` lists exactly the types shared on purpose. A complete file:
+[isolation-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/isolation-test.md).
+
+## A new app
+
+Decide the host (API, worker, or both), the key type, resolution and access validation, the store, and shared database
+or database per tenant. Then follow the steps above from step 2, with no migration backfill. A complete API and worker:
+[plugins/tenantry/skills/tenantry-new-app](plugins/tenantry/skills/tenantry-new-app/SKILL.md).
+
+## Workers, jobs, console and desktop apps
+
+Register `AddTenantry` from `Tenantry.Core` (no ASP.NET Core package) with a store, and the context with
+`UseTenantry()`. Then:
+
+| You have | Call | DI scope | Checks the tenant |
+|----------|------|----------|-------------------|
+| A tenant id (message, job data, argument) | `scopes.RunInScopeAsync(id, (scope, ct) => ..., ct)` | Opens one | Yes |
+| A descriptor read from the store (a loop over tenants) | `scopes.CreateScope(tenant)` | Opens one | No |
+| A descriptor, in a scope a framework opened | `setter.MakeCurrent(tenant)` | None | No |
+
+`RunInScopeAsync` throws `TenantNotFoundException` for an unknown id and `TenantInactiveException` for a suspended
+tenant. `IServiceProvider.CreateScope()` sets no tenant. Open scopes, or call `MakeCurrent`, in the method that does
+the work, never in an `async` helper that returns the handle. Give each tenant its own scope and context. Capture the
+id for work that runs later. Hosted services read tenants through `ITenantLookup<TKey>`. A loop over
+`GetAllTenantsAsync` checks `ITenantActivity<TKey>.IsActiveAsync` before `CreateScope` when suspended tenants must be
+skipped. On a desktop UI thread, await `RunInScopeAsync`; blocking on it deadlocks. Details:
+[plugins/tenantry/skills/tenantry-non-http](plugins/tenantry/skills/tenantry-non-http/SKILL.md).
+
+## A database per tenant
+
+```csharp
+builder.Services.AddTenantry<string>(tenant => tenant
+    .ResolveFromHeader("X-Tenant-Id")
+    .ValidateTenantAccessByClaim("tenant_id")
+    .UseStore<AppTenantStore>()
+    .UseConnectionStrings(options =>
+        options.GetConnectionString = t => $"Server=db;Database=app_{t.TenantId};Integrated Security=true")
+    .AddDbContextPerTenantDatabase<AppDbContext>((sp, options) => options.UseSqlServer(), pooled: true));
+```
+
+Configure the provider without a connection string, and register the context only this way (not also with
+`AddDbContext`). It applies `UseTenantry()` itself. Creating a context with no tenant throws, so `dotnet ef` needs an
+`IDesignTimeDbContextFactory`. Migrate each tenant's database in a deployment step: loop over
+`ITenantLookup<TKey>.GetAllTenantsAsync()`, and in each `CreateScope(tenant)` call `Database.MigrateAsync()`. Details,
+kept in one file in case the registration changes:
+[registration.md](plugins/tenantry/skills/tenantry-database-per-tenant/references/registration.md).
+
+## Moving from Finbuckle.MultiTenant
+
+Keep `string` keys. Replace `AddMultiTenant` with `AddTenantry<string>`, strategies with resolvers (pass the names
+clients send; Finbuckle's default is `__tenant__`), the store with one `ITenantStore<string>` whose
+`FindByIdentifierAsync` matches `Identifier`, and `UseMultiTenant()` with `UseTenantry()` after
+`UseAuthentication()`. Contexts become plain `DbContext`s registered with `UseTenantry()`; `[MultiTenant]` entities
+implement `ITenantEntity<string>`. Declare every key and index Finbuckle's `Adjust...` methods changed, with their
+current names, so the migration has no operations. Queries with no tenant now return nothing instead of throwing.
+Details: [plugins/tenantry/skills/tenantry-migrate-from-finbuckle](plugins/tenantry/skills/tenantry-migrate-from-finbuckle/SKILL.md)
+and https://tenantry.dev/docs/core/migrating-from-finbuckle.
+
+## Reviewing an app that uses Tenantry
+
+Read, do not change. Check, and report each finding with `path:line`, severity (High: cross-tenant read or write, or
+choosing another tenant; Medium: fragile or wrong-tenant behaviour; Low: hardening and tests) and the smallest fix:
+contexts without `UseTenantry()`; unmarked types whose rows belong to a tenant; raw SQL without a tenant predicate;
+reachable `IgnoreQueryFilters()`; caller-controlled resolution without validation; pipeline order; descriptors built
+from input passed to `CreateScope` or `MakeCurrent`; plain DI scopes in background work; `OnMissingTenant` relaxed for
+every context; unique indexes without `TenantId`; caches keyed without the tenant; and a missing isolation test. The
+full list: [checks.md](plugins/tenantry/skills/tenantry-audit-isolation/references/checks.md).
+
+## Tenantry Pro
+
+A paid package from a private feed, with a licence key read from `Tenantry:License`. It adds, inside
+`tenant.UsePro(pro => ...)`: `UseSchemaPerTenant` (SQL Server, PostgreSQL), `UseMixedMode`, provisioning and
+offboarding (`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddSeeder`,
+`ITenantProvisioner<TKey>`, `ITenantDeprovisioner<TKey>`), `app.RunTenantMigrationsIfRequestedAsync(args)` for
+`dotnet run -- migrate-tenants`, `AddHangfirePropagation`, `AddQuartzPropagation`, `AddMassTransitPropagation`,
+`AddRebusPropagation`, `AddAuditLogging` and `CacheConnectionStrings`. Installation and each feature:
+[plugins/tenantry/skills/tenantry-pro](plugins/tenantry/skills/tenantry-pro/SKILL.md) and
+https://tenantry.dev/docs/pro/installation.
+
+## Documentation
+
+- Core: https://tenantry.dev/docs/core/getting-started
+- What is and is not isolated: https://tenantry.dev/docs/core/efcore-integration#what-is-and-isnt-isolated
+- Non-HTTP hosts: https://tenantry.dev/docs/core/non-http-hosts
+- Testing: https://tenantry.dev/docs/core/testing
+- Troubleshooting: https://tenantry.dev/docs/core/troubleshooting
+- Pro: https://tenantry.dev/docs/pro/getting-started
+
+## A block for your own AGENTS.md or CLAUDE.md
+
+Copy this into the instructions file of a project that uses Tenantry:
+
+```markdown
+## Tenantry (multi-tenancy)
+
+This project uses Tenantry for tenant isolation. Guidance for agents:
+https://github.com/tenantry-org/tenantry-agent-skills/blob/master/AGENTS.md
+
+- Entities that implement ITenantEntity<TKey> are tenant-owned; every other entity is shared by all tenants on purpose.
+  Mark new entities whose rows belong to one tenant, child rows included.
+- Never set TenantId in code; Tenantry stamps it. Load an entity before changing it.
+- Every DbContext registration with tenant-owned entities calls .UseTenantry().
+- Raw SQL (SqlQuery, ExecuteSql, Dapper) and IgnoreQueryFilters() are not isolated: add the tenant predicate yourself,
+  and keep cross-tenant reads to admin code behind authorization.
+- Outside requests, run work by tenant id with ITenantScopeFactory<TKey>.RunInScopeAsync. CreateScope and
+  ITenantContextSetter<TKey>.MakeCurrent trust their descriptor: pass only one read from the store.
+- Tests for tenant-owned data write as one tenant and read as another.
+```

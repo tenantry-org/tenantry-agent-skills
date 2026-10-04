@@ -1,0 +1,61 @@
+---
+name: tenantry-database-per-tenant
+description: Gives each tenant its own database with Tenantry, connecting every EF Core DbContext to the current tenant's database through UseConnectionStrings and AddDbContextPerTenantDatabase, pooled or not. Use when the user wants a database per tenant, a connection string per tenant or customer, tenants routed to different database servers, or tenant data that must be backed up, restored or placed apart, in an ASP.NET Core, worker or console app. For a shared database with a TenantId column use tenantry-add-to-existing-app or tenantry-new-app; for a schema per tenant or mixed isolation use tenantry-pro.
+license: Apache-2.0
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Written for Tenantry 0.7.
+metadata:
+  tenantry-version: "0.7"
+---
+
+# A database per tenant
+
+Tenantry Core, the free packages, connects each context to the current tenant's database. You give it a way to find a
+tenant's connection string (`UseConnectionStrings`) and register the context with `AddDbContextPerTenantDatabase`,
+which sets the connection string whenever a context or a pooled lease is handed out.
+
+The exact registration, its options and its rules are in one file,
+[references/registration.md](references/registration.md). Read it before writing the registration. (It is kept in
+one file because the registration may change in a later release.)
+
+## Steps
+
+1. Inspect the app as for a shared database: the target framework and EF Core version, every `DbContext` and where it
+   is registered, how requests name the tenant, and raw SQL. Note which contexts hold per-tenant data and which hold
+   shared data (the tenant registry, reference data): only the per-tenant ones move to a database per tenant.
+2. Install the packages: `Tenantry.EfCore`, plus `Tenantry.AspNetCore` in a web app (`Tenantry.Core` comes with them).
+3. Put what identifies each tenant's database on the tenant: a database name built from the id, or a connection
+   string or secret name on your own descriptor type, read with `t.As<AppTenant>()`. Write the store as for a shared
+   database, over the registry in the shared database
+   (https://tenantry.dev/docs/core/tenant-stores).
+4. Register `UseConnectionStrings` and `AddDbContextPerTenantDatabase` as in the reference, and remove the context's
+   old `AddDbContext` (or pool or factory) registration. The registry's own context stays an ordinary
+   `AddDbContext` against the shared database.
+5. For a web app, add resolution and access validation as for a shared database (header, subdomain or claim, plus a
+   validator), and `app.UseTenantry()` after `app.UseAuthentication()`.
+6. Keep `ITenantEntity<TKey>` on the per-tenant entities if they have it. It is optional with a database per tenant,
+   and a second check: a connection string that points at the wrong database then shows no rows and refuses writes.
+7. Add a design-time factory for `dotnet ef`, generate migrations, and apply them to every tenant's database as a
+   deployment step: [references/migrations.md](references/migrations.md).
+8. Background work opens a tenant scope (`RunInScopeAsync(id, ...)`) exactly as with a shared database: see the
+   `tenantry-non-http` skill.
+
+## Verify
+
+1. `dotnet build` has no new warnings.
+2. A test creates two tenants' databases (SQLite files, or containers of the real database) and checks that each
+   tenant's context connects to its own and sees only its own rows. The Core sample does this with SQLite files:
+   https://github.com/tenantry-org/tenantry-core/tree/master/samples/Tenantry.Samples.DatabasePerTenant
+3. A context created with no tenant current throws `TenantNotResolvedException`.
+4. The migration step migrates every tenant's database, and the app starts and serves two tenants from two databases.
+
+## Things that are not covered
+
+SQL run directly on `Database.GetDbConnection()` is not checked by the guard. A streaming or split query that started
+before the tenant changed keeps reading from its database. Connection strings are read on every context creation
+unless you cache them; Tenantry Pro, a paid package, adds `CacheConnectionStrings()`, provisioning and a migration
+runner (see the `tenantry-pro` skill).
+
+## Further reading
+
+- Database per tenant: https://tenantry.dev/docs/core/efcore-integration#database-per-tenant
+- Non-HTTP hosts: https://tenantry.dev/docs/core/non-http-hosts
