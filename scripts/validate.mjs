@@ -406,6 +406,12 @@ function codeBlocks(text) {
   return blocks;
 }
 
+// The release the skills target, set once, in the workflow (TENANTRY_VERSION). Every dotnet add of a Tenantry package
+// pins exactly that version.
+const workflowFile = join(root, '.github', 'workflows', 'validate.yml');
+const targetVersion = /^\s*TENANTRY_VERSION:\s*['"]?([^'"\s#]+)/m.exec(readFileSync(workflowFile, 'utf8'))?.[1];
+if (!targetVersion) errors.push(`${relative(root, workflowFile)}: sets no TENANTRY_VERSION`);
+
 const docsLinks = new Set();
 
 function checkMarkdown(file) {
@@ -416,8 +422,12 @@ function checkMarkdown(file) {
     if (line.includes('\u2014')) error(file, `line ${index + 1} has an em dash`);
     checkRemovedNames(file, line, index + 1);
     // Unpinned, dotnet add package installs the newest release, which before 0.7.0 is 0.6, with isolation gaps.
-    if (/\bdotnet add\b.*\bpackage Tenantry[\w.]*/.test(line) && !/--version \S+/.test(line)) {
-      error(file, `line ${index + 1} adds a Tenantry package without --version`);
+    if (/\bdotnet add\b.*\bpackage Tenantry[\w.]*/.test(line)) {
+      const pinned = /--version\s+(\S+)/.exec(line)?.[1];
+      if (pinned !== targetVersion) {
+        error(file, `line ${index + 1} adds a Tenantry package with ${pinned ? `--version ${pinned}` : 'no --version'}; ` +
+          `pin --version ${targetVersion}, the workflow's TENANTRY_VERSION`);
+      }
     }
   });
 
@@ -425,7 +435,9 @@ function checkMarkdown(file) {
     if (!/^(csharp|cs|c#)$/i.test(block.language)) continue;
     const code = block.lines.join('\n');
     const resolver = CALLER_CHOSEN.exec(code);
-    if (resolver && !VALIDATOR.test(code)) {
+    // A block whose own resolver checks the caller's access says so with ```csharp no-validator-needed.
+    const optedOut = /(^|\s)no-validator-needed(\s|$)/.test(block.meta);
+    if (resolver && !VALIDATOR.test(code) && !optedOut) {
       error(file, `line ${block.start}: the code block registers ${resolver[1]} and no access validator`);
     }
   }

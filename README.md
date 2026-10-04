@@ -78,8 +78,9 @@ was released, using packages built from the source.
 Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.6 or earlier
 first: 0.6 has isolation gaps that 0.7 fixes, and some names the skills use do not exist in it
 ([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
-line pins `--version 0.7.0`, which NuGet reads as "0.7.0 or later", so it fails until 0.7.0 is published rather than
-installing 0.6.
+line pins `--version 0.7.0`, which makes NuGet install 0.7.0 exactly and fail, rather than install 0.6, until 0.7.0 is
+published. The skills tell the agent to stop and tell the user if it fails, and to update to the newest 0.7.x patch
+once it succeeds.
 
 ## Checking the skills
 
@@ -97,9 +98,11 @@ It needs Node.js 20 or later and nothing else, and checks:
   there;
 - that no file names an API, namespace or package Tenantry 0.7 no longer has (`scripts/removed-names.txt`, copied
   from the Tenantry repositories' own lists);
-- that every line that adds a Tenantry package with `dotnet add` pins `--version`;
+- that every line that adds a Tenantry package with `dotnet add` pins `--version` to the release the skills target,
+  `TENANTRY_VERSION` in `.github/workflows/validate.yml`, which is set there and nowhere else;
 - that no C# example registers a resolver the caller controls (header, subdomain, host, route, query string, or one
-  of your own) without an access validator;
+  of your own) without an access validator. A block whose own resolver checks the caller's access itself can say so
+  with ```` ```csharp no-validator-needed ````; no block in the skills needs it today;
 - no em dashes and no list items that start with a bold label; and that every workflow action is pinned to a commit.
 
 `--online` also requests each linked docs page.
@@ -109,10 +112,10 @@ scripts/check-snippets.sh
 ```
 
 builds every C# block in the skills and AGENTS.md against the Tenantry packages, with the .NET 10 SDK, and reports
-errors at the block's line. It builds against `TENANTRY_VERSION` (0.7.0) from nuget.org, or a folder of packages in
-`TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES` names a folder
-of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another library's code, or
-a signature shown for its shape).
+errors at the block's line. It builds against the workflow's `TENANTRY_VERSION` from nuget.org, or a folder of
+packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES`
+names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another
+library's code, or a signature shown for its shape).
 
 CI runs both on every push and pull request. Until Tenantry 0.7.0 is published, the docs headings are checked by page
 name only and the code blocks are not built in CI, as neither the 0.7 docs tags nor the packages exist yet; each
