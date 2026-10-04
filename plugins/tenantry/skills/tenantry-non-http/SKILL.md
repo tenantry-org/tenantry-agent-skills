@@ -88,7 +88,9 @@ SQLite in memory, and checks each tenant's rows are its own and that an unknown 
 
 ## 6. Verify
 
-1. `dotnet build` has no new warnings.
+1. `dotnet build` has no new warnings. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time: fix what
+   they report rather than suppress it, unless the code is meant to cross tenants
+   (https://tenantry.dev/docs/core/analyzers).
 2. The worker test passes.
 3. Run the host once against a development database and check that rows written by the background work carry the
    right tenant id.

@@ -84,24 +84,63 @@ Responses on an endpoint that requires a tenant:
 
 The bodies are empty unless `builder.Services.AddProblemDetails()` is registered.
 
-`UseTenantry()` answers before `UseAuthorization()`. With `ResolveFromClaim`, a request without a valid token has no
-claim and so no tenant, and gets `400` rather than the `401` clients may expect. Change the status if they rely on it:
-
-```csharp
-tenant.ConfigureResolution(o => o.MissingTenantStatusCode = StatusCodes.Status401Unauthorized);
-```
-
 ## Pipeline order
 
 ```csharp
 app.UseAuthentication();
+app.UseAuthorization();   // first, so an anonymous caller gets 401 rather than 403
 app.UseTenantry();        // reads User and endpoint metadata
-app.UseAuthorization();
 app.MapControllers();
 ```
 
-`WebApplication` adds routing first. A custom pipeline calls `UseRouting()` before `UseTenantry()`. Static files and
-other middleware that must not resolve a tenant go before it. For authentication settings that differ per tenant, see
-https://tenantry.dev/docs/core/authentication-per-tenant.
+With an authorization policy that reads the tenant, put `app.UseTenantry()` between authentication and authorization
+instead. `WebApplication` adds routing first; a custom pipeline calls `UseRouting()` before `UseTenantry()`. Static
+files and other middleware that must not resolve a tenant go before it.
+
+## Authentication settings per tenant
+
+When tenants sign in with settings of their own (an `Authority`, client id or cookie name), set them per scheme with
+`ConfigurePerTenant` from `Tenantry.Options` (`dotnet add package Tenantry.Options --version 0.7.0`), and resolve the
+tenant before authentication:
+
+```csharp
+app.UseTenantResolution();   // finds the tenant and makes it current
+app.UseAuthentication();     // authenticates with the tenant's settings
+app.UseTenantry();           // runs the access validators, then rejects or continues
+app.UseAuthorization();      // sees only a tenant the validators allowed
+```
+
+Call `app.UseAuthentication()` and `app.UseAuthorization()` yourself, and put only authentication between the first
+two. Authorization between them makes the app fail to start (or, added another way, refuses each request with `500`
+and event 1013). Resolve from the host, subdomain, route or header, added before any claim resolver.
+
+Between `UseTenantResolution()` and `UseTenantry()` the tenant is current but not yet checked against the user. So
+code that runs during authentication (`OnTokenValidated`, `OnValidatePrincipal`, `IClaimsTransformation`) must not
+grant claims, roles or permissions from the current tenant, must not write as it, and must not renew or reissue a
+cookie with claims taken from it.
+
+Cookies of every tenant decrypt with the app's one key ring. Add a `tenant_id` claim at sign-in and validate it
+(`ValidateTenantAccessByClaim("tenant_id")`), and name the cookie per tenant, so a user of one tenant is simply
+anonymous on another:
+
+```csharp
+using Microsoft.AspNetCore.Authentication.Cookies;
+
+tenant.ConfigurePerTenant(perTenant => perTenant
+    .Configure<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme, (o, t) =>
+        o.Cookie.Name = $".App.{t.TenantId}"));
+```
+
+With ASP.NET Core Identity, name each of its four cookie schemes this way: `IdentityConstants.ApplicationScheme`,
+`ExternalScheme`, `TwoFactorRememberMeScheme` and `TwoFactorUserIdScheme`.
+
+The cookie name is the recommended set-up; Tenantry's refusal is the safety net. When the validators refuse a tenant
+that was current during authentication and the request has a signed-in user, the whole request is refused (`403` by
+default) on every endpoint, sign-in pages included. Tenantry signs out every scheme that signs out locally (each
+cookie scheme), so `OnSigningOut` handlers run on these refusals: do not treat them as a logout the user asked for. The
+response carries no cookies set after `UseTenantResolution()` and no sign-out redirect. A failed sign-out logs event
+1015; event 1014 at startup means the authorization-order check no longer works on that ASP.NET Core version.
+
+More: https://tenantry.dev/docs/core/authentication-per-tenant and https://tenantry.dev/docs/core/aspnetcore-identity
 
 More: https://tenantry.dev/docs/core/tenant-resolution and https://tenantry.dev/docs/core/access-control

@@ -90,8 +90,8 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 var app = builder.Build();
 
 app.UseAuthentication();
+app.UseAuthorization();   // before UseTenantry, so an anonymous caller gets 401
 app.UseTenantry();
-app.UseAuthorization();
 
 app.MapGet("/health", () => "ok").AllowMissingTenant();
 

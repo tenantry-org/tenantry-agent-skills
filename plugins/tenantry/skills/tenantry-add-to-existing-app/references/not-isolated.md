@@ -30,13 +30,19 @@ public sealed class OrderTotals(AppDbContext db, ITenantContext<Guid> tenants)
 Check `tenants.HasTenant` first where the code can run without a tenant: `CurrentTenantId` is then the key type's
 default, which matches no rows but does not throw.
 
+Tenantry's analyzers report both: raw SQL on `Database` as TNY1003 (info) and `IgnoreQueryFilters()` on a
+tenant-owned entity as TNY1002 (a warning). Where the code is meant to cross tenants, silence the one occurrence with
+a reason (`#pragma warning disable TNY1002 // the admin report counts every tenant's orders`); otherwise fix it.
+
 `IgnoreQueryFilters()` removes every filter on that query. On EF Core 10, remove only the tenant filter and keep your
 own (soft delete, say):
 
 ```csharp
 using Tenantry.EfCore;
 
+#pragma warning disable TNY1002 // the admin report reads every tenant's orders
 var orders = await db.Orders.IgnoreQueryFilters([TenantryQueryFilters.Tenant]).ToListAsync();
+#pragma warning restore TNY1002
 ```
 
 When the database itself must enforce isolation, for example against direct SQL access, add row-level security in the

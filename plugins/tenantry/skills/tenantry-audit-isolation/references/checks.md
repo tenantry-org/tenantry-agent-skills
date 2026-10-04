@@ -85,6 +85,24 @@ Read `Program.cs` (or `Startup.Configure`).
 - Medium: endpoints that read or write tenant data without `RequireTenant()` or `RequireTenantByDefault()`. They do
   not leak (queries return nothing), but behave as an empty tenant.
 - High: `AllowMissingTenant()` on an endpoint that writes tenant data through maintenance code or raw SQL.
+- Low: without `UseTenantResolution()`, `UseTenantry()` before `UseAuthorization()` when no authorization policy reads
+  the tenant: an anonymous caller gets 403 instead of 401.
+
+With `UseTenantResolution()` (authentication settings per tenant, https://tenantry.dev/docs/core/authentication-per-tenant):
+
+- High: `UseAuthorization()`, or middleware of your own that calls `IAuthorizationService`, between
+  `UseTenantResolution()` and `UseTenantry()`: authorization sees a tenant the validators have not checked. (Tenantry
+  0.7 refuses to start with `UseAuthorization()` there, and logs event 1013 for authorization added another way.)
+- High: auth-time code that trusts the current tenant: `OnTokenValidated`, `OnValidatePrincipal`,
+  `OnRefreshingPrincipal` or an `IClaimsTransformation` that grants claims, roles or permissions from the current
+  tenant, writes as it, or renews or reissues a cookie with claims taken from it. The tenant is not yet checked then.
+- Medium: cookie schemes (Identity's four included) with one cookie name for every tenant whose hosts share cookies:
+  a user of one tenant is refused with 403 on every page of another until they sign out. Recommend a cookie name per
+  tenant with `Configure<CookieAuthenticationOptions>` in `ConfigurePerTenant`.
+- Medium: an `OnSigningOut` handler that treats every sign-out as one the user asked for (it revokes tokens or ends
+  other sessions, say): Tenantry signs out every local cookie scheme when it refuses a signed-in user's tenant.
+- Medium: cookies issued with no `tenant_id` claim, or no validator that checks it: a cookie from one tenant decrypts
+  on every other.
 
 ## 7. Work outside requests
 

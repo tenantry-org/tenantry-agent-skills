@@ -38,14 +38,20 @@ package to the newest 0.7.x patch that `dotnet list package --outdated` lists.
    an entity whose key is unset.
 4. Call `UseTenantry()` on every registration of every context with tenant-owned entities, after your own
    `SaveChanges` interceptors.
-5. `app.UseTenantry()` goes after `app.UseAuthentication()` and before `app.UseAuthorization()` and the endpoints.
+5. Pipeline order: `app.UseAuthentication()`, `app.UseAuthorization()`, then `app.UseTenantry()` before the endpoints,
+   so an anonymous caller gets 401 (put `UseTenantry()` before authorization only if a policy reads the tenant). With
+   authentication settings per tenant: `app.UseTenantResolution()`, `app.UseAuthentication()`, `app.UseTenantry()`,
+   `app.UseAuthorization()`, and nothing else between the first and third (see "Authentication settings per
+   tenant").
 6. Work that starts from a tenant id runs with `RunInScopeAsync(id, ...)`. `CreateScope(tenant)` and
    `ITenantContextSetter<TKey>.MakeCurrent(tenant)` trust the descriptor they are given: pass them only a descriptor
    read from the store.
 7. Add the tenant predicate yourself to raw SQL, and keep `IgnoreQueryFilters()` to admin code behind authorization.
 8. Ask the user when it is unclear which entities belong to a tenant or which tenant owns rows already in the database.
 9. Write the two isolation tests (below) before calling the work done, and check they fail without `UseTenantry()`.
-10. Tenantry Pro is a paid package. Do not add it, its feed or a licence key until the user confirms a subscription.
+10. Fix what Tenantry's analyzers report at build time (TNY1001 to TNY3002) rather than suppress it, unless the code
+    is meant to cross tenants: https://tenantry.dev/docs/core/analyzers.
+11. Tenantry Pro is a paid package. Do not add it, its feed or a licence key until the user confirms a subscription.
 
 ## Adding Tenantry to an existing ASP.NET Core and EF Core app
 
@@ -95,8 +101,8 @@ package to the newest 0.7.x patch that `dotnet list package --outdated` lists.
    builder.Services.AddAppDbContext(options => options.UseSqlServer(connectionString));
 
    app.UseAuthentication();
-   app.UseTenantry();
    app.UseAuthorization();
+   app.UseTenantry();
 
    app.MapGet("/health", () => "ok").AllowMissingTenant();
    ```
@@ -167,11 +173,39 @@ Then write two tests:
    [isolation-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/isolation-test.md).
 2. The request test, with `WebApplicationFactory<Program>`: the real app against a test database set through
    configuration (never by replacing the context's registration), with a test authentication scheme for the claims.
-   Create rows as tenant A and B through the endpoints and assert each lists only its own; assert no tenant gets
-   `400`, an unknown tenant `404` (or `403` with an access validator) and a tenant the caller may not use `403`. A
+   Create rows as tenant A and B through the endpoints and assert each lists only its own; assert a signed-in
+   request with no tenant gets `400`, an unknown tenant `404` (or `403` with an access validator) and a tenant the caller may not use `403`. A
    complete file: [request-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/request-test.md).
 
 Remove `UseTenantry()` from `AddAppDbContext` once and run both: they must fail. Put it back.
+
+## Authentication settings per tenant
+
+When tenants sign in with settings of their own, set them per scheme with `ConfigurePerTenant` (package
+`Tenantry.Options`), and resolve the tenant before authentication:
+
+```csharp
+app.UseTenantResolution();   // finds the tenant and makes it current
+app.UseAuthentication();     // authenticates with the tenant's settings
+app.UseTenantry();           // runs the access validators, then rejects or continues
+app.UseAuthorization();      // sees only a tenant the validators allowed
+```
+
+- Put only authentication between `UseTenantResolution()` and `UseTenantry()`. Authorization there makes the app fail
+  to start, or, added another way, refuses each request with `500` and event 1013.
+- During authentication the tenant is current but unchecked. `OnTokenValidated`, `OnValidatePrincipal`, claims
+  transformations and other auth-time code must not grant claims, roles or permissions from it, write as it, or renew
+  or reissue a cookie with claims taken from it.
+- Name each cookie scheme per tenant (`Configure<CookieAuthenticationOptions>(scheme, (o, t) => o.Cookie.Name =
+  ...)`; with Identity, its four cookie schemes), add a `tenant_id` claim at sign-in, and validate it. A user of one
+  tenant is then anonymous on another.
+- The refusal is the safety net: a signed-in user whose tenant the validators refuse gets the whole request refused
+  (`403`), every local cookie scheme signed out, and no cookies or sign-out redirect on the response. `OnSigningOut`
+  handlers run on these refusals; they are not a logout the user asked for. Events 1014 (the order check cannot work
+  on this ASP.NET Core) and 1015 (a sign-out failed) log what went wrong.
+
+Details: [resolution-and-access.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/resolution-and-access.md#authentication-settings-per-tenant)
+and https://tenantry.dev/docs/core/authentication-per-tenant.
 
 ## A new app
 
@@ -251,6 +285,7 @@ https://tenantry.dev/docs/pro/installation.
 ## Documentation
 
 - Core: https://tenantry.dev/docs/core/getting-started
+- Core's own page for coding agents: https://tenantry.dev/docs/core/ai-agents
 - What is and is not isolated: https://tenantry.dev/docs/core/efcore-integration#what-is-and-isnt-isolated
 - Non-HTTP hosts: https://tenantry.dev/docs/core/non-http-hosts
 - Testing: https://tenantry.dev/docs/core/testing

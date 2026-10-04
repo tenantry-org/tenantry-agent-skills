@@ -87,8 +87,8 @@ builder.Services.AddAppDbContext(options => options.UseSqlServer(connectionStrin
 var app = builder.Build();
 
 app.UseAuthentication();  // if the app has it
-app.UseTenantry();        // where UseMultiTenant() was, but after UseAuthentication()
 app.UseAuthorization();   // if the app has it
+app.UseTenantry();        // where UseMultiTenant() was, but after authentication and authorization
 ```
 
 `AddAppDbContext` is a method of the app that registers the context with `UseTenantry()`. `Program.cs` and the
@@ -112,10 +112,12 @@ Finbuckle's header strategy did not check that the caller belongs to the tenant 
 token lists their tenants, that is `ValidateTenantAccessByClaim` with the claim type the token uses; with a membership
 table, a validator of your own (https://tenantry.dev/docs/core/access-control). If the app has no authentication yet,
 the validator has nothing to check: leave it out, tell the user that callers can choose any tenant, as they could
-with Finbuckle, and that authentication and a validator must come before production.
+with Finbuckle, and that authentication and a validator must come before production. Leave the TNY2001 warning the
+build then gives in place, rather than suppress it, until the validator is added.
 
-`UseTenantry()` goes after `UseAuthentication()`. With per-tenant authentication, also call
-`app.UseTenantResolution()` before `app.UseAuthentication()`. Finbuckle's header, claim and route names default to
+`UseTenantry()` goes after `UseAuthentication()` and, unless an authorization policy reads the tenant, after
+`UseAuthorization()`, so an anonymous caller gets 401. With per-tenant authentication (Finbuckle's
+`WithPerTenantAuthentication()`), the order changes: see step 6. Finbuckle's header, claim and route names default to
 `__tenant__`; pass the names the clients use. Mark endpoints that work without a tenant with `AllowMissingTenant()`.
 
 ## 5. Move the EF Core setup
@@ -144,7 +146,27 @@ What each kind of operation means is in [references/ef-core.md](references/ef-co
 `services.ConfigurePerTenant<TOptions, TTenantInfo>(...)` becomes
 `tenant.ConfigurePerTenant(perTenant => perTenant.Configure<TOptions>((options, t) => ...))` inside `AddTenantry`
 (Tenantry.Options). Code that reads per-tenant values through `IOptions<TOptions>` changes to
-`IOptionsSnapshot<TOptions>`, or `IOptionsMonitor<TOptions>` in a singleton. Per-tenant authentication is in
+`IOptionsSnapshot<TOptions>`, or `IOptionsMonitor<TOptions>` in a singleton.
+
+`WithPerTenantAuthentication()` becomes `ConfigurePerTenant` on each scheme's options, such as
+`Configure<OpenIdConnectOptions>("oidc", (o, t) => o.Authority = ...)`, and the tenant is resolved before
+authentication, where `UseMultiTenant()` was:
+
+```csharp
+app.UseTenantResolution();
+app.UseAuthentication();
+app.UseTenantry();
+app.UseAuthorization();
+```
+
+Only authentication goes between `UseTenantResolution()` and `UseTenantry()`. During authentication the tenant is
+current but not yet checked, so auth-time code (`OnValidatePrincipal`, claims transformations) must not grant claims
+from it, write as it, or reissue a cookie with claims from it. Finbuckle refused a cookie signed in under another
+tenant; to keep that, add a `tenant_id` claim at sign-in, validate it with `ValidateTenantAccessByClaim`, and name the
+cookie per tenant. A user refused on another tenant now gets `403` there, with the cookie schemes signed out, where
+Finbuckle treated them as signed out; with a cookie name per tenant they are anonymous there instead. Sessions signed in
+before the change lack the claim, so their users sign in again. The rules, cookie code and events are in the
+`tenantry-add-to-existing-app` skill's `references/resolution-and-access.md` and in
 https://tenantry.dev/docs/core/authentication-per-tenant.
 
 ## 7. Update tests and code that depended on Finbuckle's behaviour
@@ -159,8 +181,8 @@ always throws.
 2. Tenantry is registered with `string` keys.
 3. The tenant type implements `ITenantDescriptor<string>`, and the store maps identifiers in `FindByIdentifierAsync`.
 4. The resolvers read the header, claim or route value the clients already send.
-5. `UseTenantry()` runs after `UseAuthentication()`, and with per-tenant authentication `UseTenantResolution()` runs
-   before it.
+5. `UseTenantry()` runs after `UseAuthentication()` and `UseAuthorization()`; with per-tenant authentication the order
+   is `UseTenantResolution()`, `UseAuthentication()`, `UseTenantry()`, `UseAuthorization()`.
 6. Tenant-owned entities implement `ITenantEntity<string>`, and each context is a plain `DbContext` registered with
    `UseTenantry()`.
 7. The keys and indexes Finbuckle adjusted are declared, and the new migration has no operations.

@@ -19,11 +19,16 @@ a tenant it does not belong to, or makes tenant code run with the wrong tenant o
    every `DbContext` and its registrations, the request pipeline, hosted services and job or message handlers.
 2. Run each check in [references/checks.md](references/checks.md), in order. Each check says what to search for, what
    is a finding and how severe it is. Record evidence as `path:line` with the line's code.
-3. For every search hit, read enough of the surrounding code to decide. A hit is not a finding until you have
+3. Build the app. Tenantry's analyzers report several of these checks as warnings or info: TNY1001 (an entity with a
+   `TenantId` that is not tenant-owned), TNY1002 (`IgnoreQueryFilters()` on a tenant-owned entity), TNY1003 (raw SQL),
+   TNY2001 (a request resolver with no access validator), TNY3001 (`MakeCurrent` or `CreateScope` given a descriptor
+   built in the call) and TNY3002 (blocking on `RunInScopeAsync`). Treat each as a lead, and look for suppressions of
+   them (`#pragma warning disable TNY`, `SuppressMessage`, `.editorconfig` severities) that hide real findings.
+4. For every search hit, read enough of the surrounding code to decide. A hit is not a finding until you have
    confirmed it; say "not a finding" and why for hits a reader might expect to be one.
-4. If the app has tests, run them. Note whether an isolation test exists (one that writes as one tenant and reads as
+5. If the app has tests, run them. Note whether an isolation test exists (one that writes as one tenant and reads as
    another); its absence is a finding.
-5. Write the findings as described under [Writing the findings](#writing-the-findings), most severe first.
+6. Write the findings as described under [Writing the findings](#writing-the-findings), most severe first.
 
 A Tenantry package at 0.6 or earlier is a finding of its own (High): 0.6 has isolation gaps that 0.7 fixes
 (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). These checks are written for 0.7 and later;

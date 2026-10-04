@@ -65,11 +65,13 @@ public sealed class TenantRequestTests
     }
 
     [Fact]
-    public async Task ARequestWithNoTenantIsRefused()
+    public async Task ASignedInRequestWithNoTenantIsRefused()
     {
         await using var app = await TestApp.StartAsync();
 
-        var response = await app.Factory.CreateClient().GetAsync("/projects");
+        // Signed in, but with no org_id claim, so no resolver finds a tenant. (An anonymous caller gets 401 from
+        // authorization, which runs first.)
+        var response = await app.ClientWithClaims("sub=user-1").GetAsync("/projects");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -126,10 +128,13 @@ public sealed class TenantRequestTests
         // with ValidateTenantAccessByClaim("tenant_id"), send the claim as "tenant_id=..." and the header too:
         // client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString()). Then add a test that sends one
         // tenant's claim with another tenant's header and expects 403.
-        public HttpClient ClientFor(Guid tenantId)
+        public HttpClient ClientFor(Guid tenantId) => ClientWithClaims($"org_id={tenantId}");
+
+        // A client signed in with these claims ("type=value;type=value").
+        public HttpClient ClientWithClaims(string claims)
         {
             var client = Factory.CreateClient();
-            client.DefaultRequestHeaders.Add(TestAuthentication.ClaimsHeader, $"org_id={tenantId}");
+            client.DefaultRequestHeaders.Add(TestAuthentication.ClaimsHeader, claims);
             return client;
         }
 
