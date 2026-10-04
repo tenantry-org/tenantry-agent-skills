@@ -340,7 +340,7 @@ function anchors(file) {
 // The docs pages the site serves (/docs/core/<page>, /docs/pro/<page>). With --core-docs and --pro-docs, each page and
 // heading is checked against those docs folders instead: give them the docs of the release the skills target.
 const CORE_PAGES = new Set([
-  'index', 'access-control', 'aot-and-trimming', 'aspnetcore-identity', 'aspnetcore-integration',
+  'index', 'access-control', 'ai-agents', 'analyzers', 'aot-and-trimming', 'aspnetcore-identity', 'aspnetcore-integration',
   'authentication-per-tenant', 'caching', 'changelog', 'compatibility', 'core-concepts', 'diagnostics',
   'efcore-advanced', 'efcore-integration', 'getting-started', 'http-propagation', 'migrating-from-finbuckle',
   'non-http-hosts', 'per-tenant-options', 'tenant-resolution', 'tenant-stores', 'testing', 'troubleshooting',
@@ -423,7 +423,7 @@ function checkMarkdown(file) {
     checkRemovedNames(file, line, index + 1);
     // Unpinned, dotnet add package installs the newest release, which before 0.7.0 is 0.6, with isolation gaps.
     if (/\bdotnet add\b.*\bpackage Tenantry[\w.]*/.test(line)) {
-      const pinned = /--version\s+(\S+)/.exec(line)?.[1];
+      const pinned = /--version\s+([\w.*-]+)/.exec(line)?.[1];
       if (pinned !== targetVersion) {
         error(file, `line ${index + 1} adds a Tenantry package with ${pinned ? `--version ${pinned}` : 'no --version'}; ` +
           `pin --version ${targetVersion}, the workflow's TENANTRY_VERSION`);

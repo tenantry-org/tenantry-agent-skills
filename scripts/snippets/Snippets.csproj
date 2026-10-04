@@ -13,6 +13,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Only errors fail the check: a block may leave a variable unused or a method without an await. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Except Tenantry's analyzer warnings: no example may show a tenant mistake without saying it is meant. -->
+    <WarningsAsErrors>$(WarningsAsErrors);TNY1001;TNY1002;TNY2001</WarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <IncludePro Condition="'$(IncludePro)' == ''">false</IncludePro>
   </PropertyGroup>
@@ -21,6 +23,7 @@
     <PackageReference Include="Tenantry.Core" Version="[$(TenantryVersion)]" />
     <PackageReference Include="Tenantry.AspNetCore" Version="[$(TenantryVersion)]" />
     <PackageReference Include="Tenantry.EfCore" Version="[$(TenantryVersion)]" />
+    <PackageReference Include="Tenantry.Options" Version="[$(TenantryVersion)]" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
