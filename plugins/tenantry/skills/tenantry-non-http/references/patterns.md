@@ -101,8 +101,10 @@ the tenant on each query and save, not when the context is created. It is not fi
   and create the context inside the `MakeCurrent` block.
 - With Tenantry Pro's schema per tenant, a context keeps the schema of the tenant that was current when its model was
   first used: one used under another tenant throws `TenantIsolationViolationException` of kind `TenantSchemaMismatch`.
-  Create the context inside the `MakeCurrent` block there too. Call `MakeCurrent` in the method that does the work, not in a helper that
-returns the handle. Check the tenant is active (`ITenantActivity<TKey>`) if suspended tenants' messages must not run.
+  Create the context inside the `MakeCurrent` block there too.
+
+Call `MakeCurrent` in the method that does the work, not in a helper that returns the handle. Check the tenant is
+active (`ITenantActivity<TKey>`) if suspended tenants' messages must not run.
 
 `setter.MakeNoTenantCurrent()` does the opposite: code inside it sees no tenant.
 

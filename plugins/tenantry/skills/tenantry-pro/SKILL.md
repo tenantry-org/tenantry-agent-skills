@@ -45,8 +45,9 @@ setting, kept out of source control. Never write the token or the key into a com
 2. Add the packages the feature needs (`Tenantry.Pro`, plus `Tenantry.Pro.EfCore` for schemas, provisioning, migrations
    and audit, or the integration package for a job or message library).
 3. Add `tenant.UsePro(pro => ...)` to the existing `AddTenantry` call, with the feature's registration from its
-   reference. Methods that take a context type (`AddDatabaseProvisioning<TContext>()`, `AddSchemaProvisioning<TContext>()`,
-   `AddMigrations<TContext>()`) return the builder without its key type, so call them last in a chain.
+   reference. Methods that take a context type (`AddDatabaseProvisioning<TContext>()`,
+   `AddSchemaProvisioning<TContext>()`, `AddMigrations<TContext>()`) return the builder without its key type, so call
+   them last in a chain.
 4. Build and start the app: a missing or invalid key, or a registration Pro cannot use, stops it at startup with a
    message naming the problem.
 5. Test the feature as the reference describes. Tests that start the host need the key too: set `Tenantry__License`

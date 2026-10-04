@@ -114,13 +114,27 @@ Search: `ConfigureEfCoreIsolation`, `OnMissingTenant`, `MissingTenantBehavior`.
 - Medium: code that sets `TenantId` from request input. A value naming another tenant is refused, but the code trusts
   input it should not need.
 
-## 9. Indexes
+## 9. String tenant ids and the collation
+
+With `string` keys, read the `TenantId` columns' collation (the migrations, `UseCollation`, the database's default)
+and how the store lists tenants. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
+
+- High: two tenant ids the collation takes for one another (`acme` and `ACME` under SQL Server's or MySQL's default,
+  case-insensitive collation; accents under MySQL's; trailing spaces on SQL Server under any collation). Each tenant's
+  queries return the other's rows, and its updates and deletes can change them; Tenantry compares ids exactly and
+  cannot see it.
+- Medium: nothing guarantees the ids stay distinct under the collation: a store over configuration or another service
+  rather than a table keyed by the id in the same database. Not a finding: such a table, `Guid` or `int` keys, or a
+  binary collation on `TenantId` (except for SQL Server's trailing spaces). `UseInMemoryStore` refuses ids that differ
+  only in case, not ones that differ in accents or trailing spaces.
+
+## 10. Indexes
 
 - Medium: a unique index on a tenant-owned type that does not include `TenantId`: one tenant's value blocks another's
   and reveals that it exists.
 - Low: no index leads with `TenantId` on large tenant-owned tables.
 
-## 10. Caches
+## 11. Caches
 
 Search: `IMemoryCache`, `IDistributedCache`, `HybridCache`, `AddOutputCache`, `OutputCache`, `ResponseCaching`.
 
@@ -130,7 +144,7 @@ Search: `IMemoryCache`, `IDistributedCache`, `HybridCache`, `AddOutputCache`, `O
 - Medium: `CacheTenants()` without `ITenantInvalidator<TKey>.InvalidateAsync` where tenants are suspended or renamed, so
   a suspended tenant is served until its entry expires.
 
-## 11. A database per tenant
+## 12. A database per tenant
 
 When `AddDbContextPerTenantDatabase` or `UseConnectionStrings` is used:
 
@@ -139,7 +153,7 @@ When `AddDbContextPerTenantDatabase` or `UseConnectionStrings` is used:
 - High: the same context also registered with `AddDbContext`.
 - Medium: SQL run directly on `Database.GetDbConnection()` after a tenant switch: the guard cannot see it.
 
-## 12. Tests
+## 13. Tests
 
 - Low, or Medium for an app with many tenant-owned types: no test writes as one tenant and reads as another, or none
   checks that a write naming another tenant is refused.

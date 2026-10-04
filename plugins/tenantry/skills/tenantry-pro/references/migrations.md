@@ -9,8 +9,9 @@ tenant.UsePro(pro => pro.AddMigrations<AppDbContext>());
 ```
 
 The context must be registered so that a tenant's scope gives the tenant's own database or schema: for a database
-per tenant with `UseConnectionStrings` and `AddDbContextPerTenantDatabase`, as in the database-per-tenant skill's
-[registration.md](../../tenantry-database-per-tenant/references/registration.md), or with `UseTenantry()` and [schema per tenant](schema-per-tenant.md).
+per tenant with `UseConnectionStrings` and `AddDbContextPerTenantDatabase`, as in the tenantry-database-per-tenant skill's
+[registration.md](../../tenantry-database-per-tenant/references/registration.md), or with `UseTenantry()` and
+[schema per tenant](schema-per-tenant.md).
 
 ## As a deployment step (recommended)
 

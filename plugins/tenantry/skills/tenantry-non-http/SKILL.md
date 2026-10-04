@@ -34,7 +34,11 @@ builder.Services.AddDbContext<AppDbContext>(options => options
     .UseTenantry());
 ```
 
-`--version 0.7.0` means 0.7.0 or later, so the command fails, rather than installing 0.6, until 0.7.0 is published.
+`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
+with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
+Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
+and `dotnet add package <name> --version <that patch>` installs it.
+
 A host that serves web requests too keeps its one `AddTenantry` call; the same registration serves both. Register a
 store when any code looks tenants up by id: `ITenantLookup<TKey>` and `RunInScopeAsync` throw
 `InvalidOperationException` without one.

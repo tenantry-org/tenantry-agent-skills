@@ -63,6 +63,11 @@ dotnet add package Tenantry.Pro --version 0.7.0 # from the private feed
 dotnet add package Tenantry.Pro.EfCore --version 0.7.0 # schema per tenant, provisioning, migrations, audit, health checks
 ```
 
+`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If a command fails with
+NU1102, that version is not on the feed yet: stop and tell the user. Do not install 0.6, and do not remove
+`--version`. Once it succeeds, update every Tenantry and Tenantry Pro package to the newest 0.7.x patch:
+`dotnet list package --outdated` lists it.
+
 The integrations are `Tenantry.Pro.Hangfire`, `Tenantry.Pro.Quartz`, `Tenantry.Pro.MassTransit` and
 `Tenantry.Pro.Rebus`. Pro's version must match Tenantry Core's minor version.
 

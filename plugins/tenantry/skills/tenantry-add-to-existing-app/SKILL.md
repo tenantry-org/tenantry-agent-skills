@@ -46,6 +46,10 @@ code, ask the user. Do not guess.
 ## 2. Choose the key type and install the packages
 
 Use the type of the existing owner id as `TKey` (`Guid`, `int`, `long` or `string`), and use it everywhere.
+With `string` ids, the database compares `TenantId` under the column's collation, and SQL Server's and MySQL's
+defaults ignore case, so `acme` and `ACME` would be one tenant to the database and two to Tenantry. Each tenant's id
+must be unique under that collation: a store keyed by the id, in the same database, guarantees it, and
+`UseInMemoryStore` refuses two ids that differ only in case. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
 
 ```bash
 # In the web project
@@ -53,8 +57,10 @@ dotnet add package Tenantry.AspNetCore --version 0.7.0
 dotnet add package Tenantry.EfCore --version 0.7.0
 ```
 
-NuGet reads `--version 0.7.0` as "0.7.0 or later" and restores the lowest such version, so the command fails while
-0.7.0 is not published instead of installing 0.6. `dotnet list package --outdated` then shows newer patches.
+`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
+with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
+Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
+and `dotnet add package <name> --version <that patch>` installs it.
 
 A separate project that holds only entities needs `Tenantry.Core` (for `ITenantEntity<TKey>`); one that calls
 `UseTenantry()` on a context's options needs `Tenantry.EfCore`.

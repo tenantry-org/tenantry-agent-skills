@@ -18,10 +18,11 @@ These instructions are for Tenantry 0.7 and later; do not move to 0.6, which has
 
 ## 0. Inventory
 
-List every Finbuckle package, `using` directive and call (`grep -rn "Finbuckle\|MultiTenant" --include='*.cs' .`, leaving out `bin/`, `obj/` and existing migrations), every
-context and how it gets its tenant, every entity marked `[MultiTenant]` or `IsMultiTenant()`, every call to
-`AdjustKey`, `AdjustIndex`, `AdjustIndexes` or `AdjustUniqueIndexes`, and every `ConfigurePerTenant` and
-`WithPerTenantAuthentication`. Write the list down; the checklist at the end refers to it.
+List every Finbuckle package, `using` directive and call (`grep -rn "Finbuckle\|MultiTenant" --include='*.cs' .`,
+leaving out `bin/`, `obj/` and existing migrations), every context and how it gets its tenant, every entity marked
+`[MultiTenant]` or `IsMultiTenant()`, every call to `AdjustKey`, `AdjustIndex`, `AdjustIndexes` or
+`AdjustUniqueIndexes`, and every `ConfigurePerTenant` and `WithPerTenantAuthentication`. Write the list down; the
+checklist at the end refers to it.
 
 ## 1. Swap the packages
 
@@ -32,7 +33,10 @@ dotnet add package Tenantry.AspNetCore --version 0.7.0
 dotnet add package Tenantry.EfCore --version 0.7.0
 ```
 
-`--version 0.7.0` means 0.7.0 or later, so the command fails, rather than installing 0.6, until 0.7.0 is published.
+`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
+with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
+Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
+and `dotnet add package <name> --version <that patch>` installs it.
 
 Add `Tenantry.Options` for per-tenant options. Remove `Finbuckle.MultiTenant.Identity.EntityFrameworkCore` too if it is
 used, and follow https://tenantry.dev/docs/core/aspnetcore-identity.
@@ -41,6 +45,12 @@ used, and follow https://tenantry.dev/docs/core/aspnetcore-identity.
 
 Finbuckle's ids and its `TenantId` columns are strings. Register `AddTenantry<string>` and the columns and data stay
 as they are. Changing the key type is a separate change with a data migration; do not combine it with this one.
+
+With `string` ids, the database compares `TenantId` under the column's collation, and SQL Server's and MySQL's
+defaults ignore case, so `acme` and `ACME` would be one tenant to the database and two to Tenantry. Each tenant's id
+must be unique under that collation: a store keyed by the id, in the same database, guarantees it, and
+`UseInMemoryStore` refuses two ids that differ only in case. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation Finbuckle's EF Core store keys its table by the id, so
+it already guarantees this; a configuration or in-memory store of ids that differ only in case must be fixed first.
 
 ## 3. Move the tenant type and the store
 
@@ -71,15 +81,30 @@ builder.Services.AddTenantry<string>(tenant => tenant
     .UseStore<AppTenantStore>()
     .RequireTenantByDefault());
 
-builder.Services.AddDbContext<AppDbContext>(options => options
-    .UseSqlServer(connectionString)
-    .UseTenantry());
+// The app's context, registered through a method the isolation tests call too (below).
+builder.Services.AddAppDbContext(options => options.UseSqlServer(connectionString));
 
 var app = builder.Build();
 
 app.UseAuthentication();  // if the app has it
 app.UseTenantry();        // where UseMultiTenant() was, but after UseAuthentication()
 app.UseAuthorization();   // if the app has it
+```
+
+`AddAppDbContext` is a method of the app that registers the context with `UseTenantry()`. `Program.cs` and the
+isolation tests (checklist item 13) both call it, so the tests check the registration the app runs with:
+
+```csharp
+public static class AppDataRegistration
+{
+    public static IServiceCollection AddAppDbContext(
+        this IServiceCollection services, Action<DbContextOptionsBuilder> useDatabase) =>
+        services.AddDbContext<AppDbContext>(options =>
+        {
+            useDatabase(options);
+            options.UseTenantry();
+        });
+}
 ```
 
 Finbuckle's header strategy did not check that the caller belongs to the tenant it names, and neither does
@@ -145,9 +170,8 @@ always throws.
 11. Tests that expected an exception without a tenant expect empty results.
 12. Both migrations, the store context's and the app context's, have no operations.
 13. `dotnet build` and `dotnet test` pass, including both isolation tests from the `tenantry-add-to-existing-app` skill
-    (its `references/isolation-test.md` and `references/request-test.md`), written against the migrated app. The
-    first needs the context's registration moved into an `AddAppDbContext` method, as that skill's step 7 shows, so
-    the test checks the registration the app runs with.
+    (its `references/isolation-test.md` and `references/request-test.md`), written against the migrated app, which
+    registers its context through `AddAppDbContext` (step 4).
 
 ## Further reading
 

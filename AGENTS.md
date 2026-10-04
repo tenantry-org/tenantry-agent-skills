@@ -8,8 +8,9 @@ agents that do not load skills. It is for Tenantry 0.7 and later (`Tenantry.Core
 Check the version first with `dotnet list package`. If a project references Tenantry 0.6 or earlier, upgrade every
 Tenantry package to 0.7 before anything else: 0.6 has isolation gaps that 0.7 fixes, and some names used here do not
 exist in it (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). Add packages with
-`--version 0.7.0`, which NuGet reads as "0.7.0 or later": the command then fails, rather than installing 0.6, until
-0.7.0 is published.
+`--version 0.7.0`, which makes NuGet install 0.7.0 exactly. If the command fails with NU1102, 0.7.0 is not published
+yet: stop and tell the user; do not install 0.6 and do not remove `--version`. Once it succeeds, update every Tenantry
+package to the newest 0.7.x patch that `dotnet list package --outdated` lists.
 
 ## How Tenantry isolates data
 
@@ -54,7 +55,10 @@ exist in it (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG
    identifies the customer on a request today; authentication and claims; raw SQL and `IgnoreQueryFilters`; background
    work.
 2. Use the existing owner id's type as `TKey`. Install `Tenantry.AspNetCore` and `Tenantry.EfCore` with
-   `--version 0.7.0`.
+   `--version 0.7.0`. With `string` ids, each tenant's id must be unique under the `TenantId` column's collation
+   (SQL Server's and MySQL's defaults ignore case): a store keyed by the id in the same database guarantees it, and
+   `UseInMemoryStore` refuses ids that differ only in case
+   (https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation).
 3. Write a store over the existing organisations table, or start with `UseInMemoryStore`. The registry entity must not
    implement `ITenantEntity<TKey>`:
 
@@ -116,8 +120,8 @@ exist in it (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG
    });
    ```
 
-   For a type with no owner column, derive from `TenantEntity<TKey>`. Mark the root of an inheritance hierarchy; owned types
-   follow their owner. Lead composite indexes with `TenantId`.
+   For a type with no owner column, derive from `TenantEntity<TKey>`. Mark the root of an inheritance hierarchy; owned
+   types follow their owner. Lead composite indexes with `TenantId`.
 7. `dotnet ef migrations add AddTenantry`, and read it. For an existing owner column, expect no column operations.
    A new `TenantId` column gives existing rows the key type's default, which names no tenant. Ask the user which
    tenant the existing rows belong to before writing anything; there is no safe default. Then, in the migration after
@@ -126,7 +130,8 @@ exist in it (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG
    `AddColumn` added with an `AlterColumn` that has `oldDefaultValue`. EF Core stores a `Guid` on SQLite as upper-case
    text. Afterwards, check no row names a tenant the store does not have.
 8. Fix what breaks: remove code that set the owner id by hand; load entities before changing them instead of
-   `Update(new Entity { Id = id })`; add the tenant predicate to raw SQL (`WHERE "TenantId" = {tenants.CurrentTenantId}`).
+   `Update(new Entity { Id = id })`; add the tenant predicate to raw SQL (`WHERE "TenantId" =
+   {tenants.CurrentTenantId}`).
 9. Write the isolation test (below), then run `dotnet build`, `dotnet test`, and the app with two tenants.
 
 The full procedure, with references for stores, resolution, entities and the test:
@@ -188,12 +193,12 @@ Register `AddTenantry` from `Tenantry.Core` (no ASP.NET Core package) with a sto
 `RunInScopeAsync` throws `TenantNotFoundException` for an unknown id and `TenantInactiveException` for a suspended
 tenant; a consumer catches their base type, `TenantNotResolvedException`, so one message does not stop the host. A
 context injected before `MakeCurrent` works with a shared database only: with a database per tenant, create it from
-`IDbContextFactory<TContext>` inside the `MakeCurrent` block. `IServiceProvider.CreateScope()` sets no tenant. Open scopes, or call `MakeCurrent`, in the method that does
-the work, never in an `async` helper that returns the handle. Give each tenant its own scope and context. Capture the
-id for work that runs later. Hosted services read tenants through `ITenantLookup<TKey>`. A loop over
-`GetAllTenantsAsync` checks `ITenantActivity<TKey>.IsActiveAsync` before `CreateScope` when suspended tenants must be
-skipped. On a desktop UI thread, await `RunInScopeAsync`; blocking on it deadlocks. Details:
-[plugins/tenantry/skills/tenantry-non-http](plugins/tenantry/skills/tenantry-non-http/SKILL.md).
+`IDbContextFactory<TContext>` inside the `MakeCurrent` block. `IServiceProvider.CreateScope()` sets no tenant. Open
+scopes, or call `MakeCurrent`, in the method that does the work, never in an `async` helper that returns the handle.
+Give each tenant its own scope and context. Capture the id for work that runs later. Hosted services read tenants
+through `ITenantLookup<TKey>`. A loop over `GetAllTenantsAsync` checks `ITenantActivity<TKey>.IsActiveAsync` before
+`CreateScope` when suspended tenants must be skipped. On a desktop UI thread, await `RunInScopeAsync`; blocking on it
+deadlocks. Details: [plugins/tenantry/skills/tenantry-non-http](plugins/tenantry/skills/tenantry-non-http/SKILL.md).
 
 ## A database per tenant
 
@@ -204,22 +209,21 @@ registration is kept in one file, as it may change before a release:
 provider without a connection string, and register the context only this way (not also with `AddDbContext`). It
 applies `UseTenantry()` itself. Creating a context with no tenant throws, so `dotnet ef` needs an
 `IDesignTimeDbContextFactory`. Migrate each tenant's database in a deployment step: loop over
-`ITenantLookup<TKey>.GetAllTenantsAsync()`, and in each `CreateScope(tenant)` call `Database.MigrateAsync()`. Details,
-kept in one file in case the registration changes:
-[registration.md](plugins/tenantry/skills/tenantry-database-per-tenant/references/registration.md).
+`ITenantLookup<TKey>.GetAllTenantsAsync()`, and in each `CreateScope(tenant)` call `Database.MigrateAsync()`.
 
 ## Moving from Finbuckle.MultiTenant
 
-Keep `string` keys. Replace `AddMultiTenant` with `AddTenantry<string>`, strategies with resolvers (pass the names
-clients send; Finbuckle's default is `__tenant__`), the store with one `ITenantStore<string>` whose
-`FindByIdentifierAsync` matches `Identifier`, and `UseMultiTenant()` with `UseTenantry()` after
-`UseAuthentication()`. Finbuckle's header strategy did not check that the caller belongs to the tenant, and neither
-does `ResolveFromHeader` alone: add an access validator, or, if the app has no authentication yet, tell the user. Keep
-the store context's class name and map the tenant type to Finbuckle's `TenantInfo` table as it is, so the store's
-migration has no operations. Contexts become plain `DbContext`s registered with `UseTenantry()`; `[MultiTenant]` entities
-implement `ITenantEntity<string>`. Declare every key and index Finbuckle's `Adjust...` methods changed, with their
-current names, so the migration has no operations. Queries with no tenant now return nothing instead of throwing.
-Details: [plugins/tenantry/skills/tenantry-migrate-from-finbuckle](plugins/tenantry/skills/tenantry-migrate-from-finbuckle/SKILL.md)
+Keep `string` keys, unique under the `TenantId` column's collation as above. Replace `AddMultiTenant` with
+`AddTenantry<string>`, strategies with resolvers (pass the names clients send; Finbuckle's default is `__tenant__`),
+the store with one `ITenantStore<string>` whose `FindByIdentifierAsync` matches `Identifier`, and `UseMultiTenant()`
+with `UseTenantry()` after `UseAuthentication()`. Finbuckle's header strategy did not check that the caller belongs to
+the tenant, and neither does `ResolveFromHeader` alone: add an access validator, or, if the app has no authentication
+yet, tell the user. Keep the store context's class name and map the tenant type to Finbuckle's `TenantInfo` table as
+it is, so the store's migration has no operations. Contexts become plain `DbContext`s registered with `UseTenantry()`;
+`[MultiTenant]` entities implement `ITenantEntity<string>`. Declare every key and index Finbuckle's `Adjust...`
+methods changed, with their current names, so the migration has no operations. Queries with no tenant now return
+nothing instead of throwing. Details:
+[plugins/tenantry/skills/tenantry-migrate-from-finbuckle](plugins/tenantry/skills/tenantry-migrate-from-finbuckle/SKILL.md)
 and https://tenantry.dev/docs/core/migrating-from-finbuckle.
 
 ## Reviewing an app that uses Tenantry
@@ -229,7 +233,8 @@ choosing another tenant; Medium: fragile or wrong-tenant behaviour; Low: hardeni
 contexts without `UseTenantry()`; unmarked types whose rows belong to a tenant; raw SQL without a tenant predicate;
 reachable `IgnoreQueryFilters()`; caller-controlled resolution without validation; pipeline order; descriptors built
 from input passed to `CreateScope` or `MakeCurrent`; plain DI scopes in background work; `OnMissingTenant` relaxed for
-every context; unique indexes without `TenantId`; caches keyed without the tenant; and a missing isolation test. The
+every context; `string` tenant ids that the `TenantId` column's collation takes for one another; unique indexes
+without `TenantId`; caches keyed without the tenant; and a missing isolation test. The
 full list: [checks.md](plugins/tenantry/skills/tenantry-audit-isolation/references/checks.md).
 
 ## Tenantry Pro

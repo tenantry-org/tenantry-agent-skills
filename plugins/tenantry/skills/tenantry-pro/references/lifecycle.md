@@ -14,7 +14,8 @@ tenant.UsePro(pro => pro
 ```
 
 For a database per tenant, the context is registered with Core's `UseConnectionStrings` and
-`AddDbContextPerTenantDatabase`, as in [registration.md](../../tenantry-database-per-tenant/references/registration.md).
+`AddDbContextPerTenantDatabase`, as in the tenantry-database-per-tenant skill's
+[registration.md](../../tenantry-database-per-tenant/references/registration.md).
 
 For a schema per tenant, use `AddSchemaProvisioning<AppDbContext>()` in place of `AddDatabaseProvisioning`.
 

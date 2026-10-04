@@ -27,8 +27,12 @@ names used here do not exist in it. What changed: https://github.com/tenantry-or
    is registered, how requests name the tenant, and raw SQL. Note which contexts hold per-tenant data and which hold
    shared data (the tenant registry, reference data): only the per-tenant ones move to a database per tenant.
 2. Install the packages with `dotnet add package <name> --version 0.7.0`: `Tenantry.EfCore`, plus `Tenantry.AspNetCore`
-   in a web app (`Tenantry.Core` comes with them). `--version 0.7.0` means 0.7.0 or later, so the command fails,
-   rather than installing 0.6, until 0.7.0 is published.
+   in a web app (`Tenantry.Core` comes with them).
+
+   `--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
+   with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
+   Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
+   and `dotnet add package <name> --version <that patch>` installs it.
 3. Put what identifies each tenant's database on the tenant: a database name built from the id, or a connection
    string or secret name on your own descriptor type, read with `t.As<AppTenant>()`. Write the store as for a shared
    database, over the registry in the shared database

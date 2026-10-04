@@ -10,7 +10,8 @@ tenant's connection string in memory for `Duration` (30 minutes by default).
 tenant.UsePro(pro => pro.CacheConnectionStrings(o => o.Duration = TimeSpan.FromMinutes(30)));
 ```
 
-The connection-string registration it caches is Core's: [registration.md](../../tenantry-database-per-tenant/references/registration.md).
+The connection-string registration it caches is Core's, in the tenantry-database-per-tenant skill's
+[registration.md](../../tenantry-database-per-tenant/references/registration.md).
 
 - It wraps the provider `UseConnectionStrings` registers (before or after `UsePro`), or one you register before
   `UsePro`. With no provider the app does not start. A provider registered after `UsePro` replaces the cache, and a
