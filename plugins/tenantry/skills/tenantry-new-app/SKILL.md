@@ -65,12 +65,12 @@ types to the user's domain.
 
 ## Verify
 
-1. `dotnet build` has no warnings. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time: fix what
-   they report rather than suppress it, unless the code is meant to cross tenants
+1. `dotnet build` has no warnings. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time: fix
+   what they report rather than suppress it, unless the code is meant to cross tenants
    (https://tenantry.dev/docs/core/analyzers).
 2. `dotnet test` passes, including the isolation test.
-3. With the app running, two tenants each see only their own data, a signed-in request with no tenant gets `400` (an anonymous one `401`), and a tenant
-   the caller may not use gets `403`.
+3. With the app running, two tenants each see only their own data, a signed-in request with no tenant gets `400` (an
+   anonymous one `401` on endpoints that require authorization), and a tenant the caller may not use gets `403`.
 
 ## Further reading
 

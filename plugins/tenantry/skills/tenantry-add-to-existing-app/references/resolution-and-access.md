@@ -141,6 +141,17 @@ cookie scheme), so `OnSigningOut` handlers run on these refusals: do not treat t
 response carries no cookies set after `UseTenantResolution()` and no sign-out redirect. A failed sign-out logs event
 1015; event 1014 at startup means the authorization-order check no longer works on that ASP.NET Core version.
 
+Three more points from Core's docs:
+
+- With OpenID Connect, take the tenant from the host, subdomain or route: the identity provider's redirect back to
+  `/signin-oidc` carries only the URL, not a header
+  ([Sign-in redirects](https://tenantry.dev/docs/core/authentication-per-tenant#sign-in-redirects)).
+- With one cookie name shared by every tenant, mark the sign-in endpoint `AllowMissingTenant()`, take the tenant from
+  the request (its host, say) when you issue the cookie, and keep the endpoint after `UseTenantResolution()`
+  ([Cookies](https://tenantry.dev/docs/core/authentication-per-tenant#cookies)).
+- Middleware before `UseTenantResolution()` must not store `HttpContext.User` in an `OnStarting` callback: those run
+  after Tenantry's, so they see the refused user.
+
 More: https://tenantry.dev/docs/core/authentication-per-tenant and https://tenantry.dev/docs/core/aspnetcore-identity
 
 More: https://tenantry.dev/docs/core/tenant-resolution and https://tenantry.dev/docs/core/access-control

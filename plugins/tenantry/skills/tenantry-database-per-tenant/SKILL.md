@@ -51,8 +51,8 @@ names used here do not exist in it. What changed: https://github.com/tenantry-or
 
 ## Verify
 
-1. `dotnet build` has no new warnings. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time: fix what
-   they report rather than suppress it, unless the code is meant to cross tenants
+1. `dotnet build` has no new warnings. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time:
+   fix what they report rather than suppress it, unless the code is meant to cross tenants
    (https://tenantry.dev/docs/core/analyzers).
 2. A test creates two tenants' databases (SQLite files, or containers of the real database) and checks that each
    tenant's context connects to its own and sees only its own rows. The Core sample does this with SQLite files:

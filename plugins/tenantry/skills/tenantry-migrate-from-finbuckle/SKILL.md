@@ -163,8 +163,10 @@ Only authentication goes between `UseTenantResolution()` and `UseTenantry()`. Du
 current but not yet checked, so auth-time code (`OnValidatePrincipal`, claims transformations) must not grant claims
 from it, write as it, or reissue a cookie with claims from it. Finbuckle refused a cookie signed in under another
 tenant; to keep that, add a `tenant_id` claim at sign-in, validate it with `ValidateTenantAccessByClaim`, and name the
-cookie per tenant. A user refused on another tenant now gets `403` there, with the cookie schemes signed out, where
-Finbuckle treated them as signed out; with a cookie name per tenant they are anonymous there instead. Sessions signed in
+cookie per tenant. With one cookie name, a request for another tenant now gets `403` on every endpoint there, where
+Finbuckle treated the user as signed out; the user stays signed in on their own tenant, and with a `SessionStore`
+their session is also removed. With a cookie name per tenant they are anonymous on the other tenant instead, as under
+Finbuckle. Sessions signed in
 before the change lack the claim, so their users sign in again. The rules, cookie code and events are in the
 `tenantry-add-to-existing-app` skill's `references/resolution-and-access.md` and in
 https://tenantry.dev/docs/core/authentication-per-tenant.

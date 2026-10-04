@@ -173,9 +173,10 @@ Then write two tests:
    [isolation-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/isolation-test.md).
 2. The request test, with `WebApplicationFactory<Program>`: the real app against a test database set through
    configuration (never by replacing the context's registration), with a test authentication scheme for the claims.
-   Create rows as tenant A and B through the endpoints and assert each lists only its own; assert a signed-in
-   request with no tenant gets `400`, an unknown tenant `404` (or `403` with an access validator) and a tenant the caller may not use `403`. A
-   complete file: [request-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/request-test.md).
+   Create rows as tenant A and B through the endpoints and assert each lists only its own; assert a signed-in request
+   with no tenant gets `400`, an unknown tenant `404` (or `403` with an access validator) and a tenant the caller may
+   not use `403`. A complete file:
+   [request-test.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/request-test.md).
 
 Remove `UseTenantry()` from `AddAppDbContext` once and run both: they must fail. Put it back.
 
@@ -200,9 +201,13 @@ app.UseAuthorization();      // sees only a tenant the validators allowed
   ...)`; with Identity, its four cookie schemes), add a `tenant_id` claim at sign-in, and validate it. A user of one
   tenant is then anonymous on another.
 - The refusal is the safety net: a signed-in user whose tenant the validators refuse gets the whole request refused
-  (`403`), every local cookie scheme signed out, and no cookies or sign-out redirect on the response. `OnSigningOut`
-  handlers run on these refusals; they are not a logout the user asked for. Events 1014 (the order check cannot work
-  on this ASP.NET Core) and 1015 (a sign-out failed) log what went wrong.
+  (`403`), every local cookie scheme signed out, and a response with no cookies set after `UseTenantResolution()` and
+  no sign-out redirect. `OnSigningOut` handlers run on these refusals; they are not a logout the user asked for.
+  Events 1014 (the order check cannot work on this ASP.NET Core) and 1015 (a sign-out failed) log what went wrong.
+- With OpenID Connect, take the tenant from the host, subdomain or route: the provider's redirect to `/signin-oidc`
+  carries no header. With one shared cookie name, the sign-in endpoint is `AllowMissingTenant()`, takes the tenant
+  from the request and stays after `UseTenantResolution()`. Middleware before `UseTenantResolution()` must not store
+  `HttpContext.User` in `OnStarting`.
 
 Details: [resolution-and-access.md](plugins/tenantry/skills/tenantry-add-to-existing-app/references/resolution-and-access.md#authentication-settings-per-tenant)
 and https://tenantry.dev/docs/core/authentication-per-tenant.

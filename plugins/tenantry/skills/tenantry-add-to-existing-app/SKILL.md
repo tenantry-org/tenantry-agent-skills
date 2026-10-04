@@ -171,14 +171,15 @@ Then remove `UseTenantry()` from `AddAppDbContext` and run the tests once: they 
 
 ## 11. Verify
 
-1. `dotnet build` has no new warnings or errors. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at build time: fix what
-   they report rather than suppress it, unless the code is meant to cross tenants
+1. `dotnet build` has no new warnings or errors. Tenantry's analyzers (TNY1001 to TNY3002) report tenant mistakes at
+   build time: fix what they report rather than suppress it, unless the code is meant to cross tenants
    (https://tenantry.dev/docs/core/analyzers).
 2. The migration's operations are the ones you expect, and the backfill runs.
 3. `dotnet test` passes, including both isolation tests, and they failed with `UseTenantry()` removed.
-4. With the app running, two tenants each see only their own data and their new rows are stamped with their own id,
-   a signed-in request with no tenant gets `400` (an anonymous one `401`), an id the store does not have gets `404` (or `403` once an access validator
-   is configured), and a tenant the caller may not use gets `403`.
+4. With the app running, two tenants each see only their own data and their new rows are stamped with their own id, a
+   signed-in request with no tenant gets `400` (an anonymous one `401` on endpoints that require authorization), an id
+   the store does not have gets `404` (or `403` once an access validator is configured), and a tenant the caller may
+   not use gets `403`.
 
 Tell the user what is not isolated (raw SQL, `IgnoreQueryFilters()`, contexts without `UseTenantry()`, anything that
 reaches the database directly), where each case is in their code, and what you did about it.

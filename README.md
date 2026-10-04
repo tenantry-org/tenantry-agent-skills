@@ -112,9 +112,11 @@ scripts/check-snippets.sh
 ```
 
 builds every C# block in the skills and AGENTS.md against the Tenantry packages, with the .NET 10 SDK, and reports
-errors at the block's line. Tenantry's analyzer warnings (TNY1001, TNY1002, TNY2001) are errors there, so an example
-that crosses tenants on purpose says so with a `#pragma warning disable` and a reason. It builds against the workflow's `TENANTRY_VERSION` from nuget.org, or a folder of
-packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES`
+errors at the block's line. Tenantry's TNY1001 and TNY1002 warnings are errors there, so an example that crosses
+tenants on purpose says so with a `#pragma warning disable` and a reason. The build cannot catch a resolver without an
+access validator, since TNY2001 reports nothing once any block in the one project adds a validator; the per-block
+check in `validate.mjs` covers that. It builds against the workflow's `TENANTRY_VERSION` from nuget.org, or a folder
+of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES`
 names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another
 library's code, or a signature shown for its shape).
 
