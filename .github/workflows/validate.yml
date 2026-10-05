@@ -9,8 +9,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: validate-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request cancels its older run. Any other run, a push to master, the weekly run or one
+  # started by hand, gets a group of its own, so none cancels another.
+  group: validate-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
