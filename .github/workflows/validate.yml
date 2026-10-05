@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  schedule:
+    - cron: "0 5 * * 1"   # Mondays, 05:00 UTC, so the checks that wait for a release start without a commit
   workflow_dispatch:
 
 concurrency:
@@ -15,8 +17,9 @@ permissions:
 
 env:
   # The release the skills are written for. Its docs and its packages are what the links and code blocks are checked
-  # against. Until it is published, those two checks print a notice and pass; they start checking on their own the
-  # day it is, so a mistake shows up then rather than being hidden by a setting someone has to remember to change.
+  # against. Until it is published, those two checks print a notice and pass; they start checking on their own once it
+  # is, by the next weekly run at the latest, so a mistake shows up then rather than being hidden by a setting someone
+  # has to remember to change.
   TENANTRY_VERSION: 0.7.0
 
 jobs:
