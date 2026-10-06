@@ -48,6 +48,7 @@
     <PackageReference Include="Tenantry.Pro" Version="[$(TenantryProVersion)]" />
     <PackageReference Include="Tenantry.Pro.EfCore" Version="[$(TenantryProVersion)]" />
     <PackageReference Include="Tenantry.Pro.Hangfire" Version="[$(TenantryProVersion)]" />
+    <PackageReference Include="Tenantry.Pro.MassTransit" Version="[$(TenantryProVersion)]" />
     <PackageReference Include="Hangfire.Core" Version="1.8.25" />
     <PackageReference Include="Hangfire.InMemory" Version="1.0.0" />
     <PackageReference Include="Hangfire.NetCore" Version="1.8.25" />

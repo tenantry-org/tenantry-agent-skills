@@ -138,7 +138,7 @@ newest 0.8.x patch that `dotnet list package --outdated` lists.
    text. Afterwards, check no row names a tenant the store does not have.
 8. Fix what breaks: remove code that set the owner id by hand; load entities before changing them instead of
    `Update(new Entity { Id = id })`; add the tenant predicate to raw SQL (`WHERE "TenantId" =
-   {tenants.CurrentTenantId}`).
+   {tenants.RequiredTenant.TenantId}`).
 9. Write the isolation test (below), then run `dotnet build`, `dotnet test`, and the app with two tenants.
 
 The full procedure, with references for stores, resolution, entities and the test:
@@ -203,8 +203,9 @@ app.UseAuthorization();      // sees only a tenant the validators allowed
   tenant is then anonymous on another.
 - The refusal is the safety net: a signed-in user whose tenant the validators refuse gets the whole request refused
   (`403`), every local cookie scheme signed out, and a response with no cookies set after `UseTenantResolution()` and
-  no sign-out redirect. `OnSigningOut` handlers run on these refusals; they are not a logout the user asked for.
-  Events 1014 (the order check cannot work on this ASP.NET Core) and 1015 (a sign-out failed) log what went wrong.
+  no sign-out redirect. `OnRejected` runs for it too. `OnSigningOut` handlers run on these refusals; they are not a
+  logout the user asked for. Events 1014 (the order check cannot work on this ASP.NET Core) and 1015 (a sign-out
+  failed) log what went wrong.
 - With OpenID Connect, take the tenant from the host, subdomain or route: the provider's redirect to `/signin-oidc`
   carries no header. With one shared cookie name, the sign-in endpoint is `AllowMissingTenant()`, takes the tenant
   from the request and stays after `UseTenantResolution()`. Middleware before `UseTenantResolution()` must not store
@@ -277,17 +278,20 @@ contexts without `UseTenantry()`; unmarked types whose rows belong to a tenant; 
 reachable `IgnoreQueryFilters()`; caller-controlled resolution without validation; pipeline order; descriptors built
 from input passed to `CreateScope` or `MakeCurrent`; plain DI scopes in background work; `OnMissingTenant` relaxed for
 every context; `string` tenant ids that the `TenantId` column's collation takes for one another; unique indexes
-without `TenantId`; caches keyed without the tenant; and a missing isolation test. The
-full list: [checks.md](plugins/tenantry/skills/tenantry-audit-isolation/references/checks.md).
+without `TenantId`; caches keyed without the tenant; SignalR hubs and Blazor Server circuits without Tenantry's check;
+and a missing isolation test. The full list:
+[checks.md](plugins/tenantry/skills/tenantry-audit-isolation/references/checks.md).
 
 ## Tenantry Pro
 
 A paid package from a private feed, with a licence key read from `Tenantry:License`. It adds, inside
-`tenant.UsePro(pro => ...)`: `UseSchemaPerTenant` (SQL Server, PostgreSQL), `UseMixedMode`, provisioning and
-offboarding (`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddProvisioningStep`,
-`ITenantProvisioner<TKey>`, `ITenantDeprovisioner<TKey>`), `app.RunTenantMigrationsIfRequestedAsync(args)` for
-`dotnet run -- migrate-tenants`, `AddHangfirePropagation`, `AddQuartzPropagation`, `AddMassTransitPropagation`,
-`AddRebusPropagation`, `AddAuditLogging` and `CacheConnectionStrings`. Installation and each feature:
+`tenant.UsePro(pro => ...)`: `UseSchemaPerTenant` (SQL Server, PostgreSQL), `UseMixedMode` (with
+`GuardSharedTenants` when no other `Tenantry.Pro.EfCore` feature is added), provisioning and offboarding
+(`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddProvisioningStep`,
+`ITenantProvisioner<TKey>`, whose `ProvisionAsync` takes the call that activates the tenant,
+`ITenantDeprovisioner<TKey>`), `app.RunTenantMigrationsIfRequestedAsync(args)` for `dotnet run -- migrate-tenants`,
+`AddHangfirePropagation`, `AddQuartzPropagation`, `AddMassTransitPropagation`, `AddRebusPropagation`,
+`BroadcastInvalidationsOverMassTransit`, `AddAuditLogging` and `CacheConnectionStrings`. Installation and each feature:
 [plugins/tenantry/skills/tenantry-pro](plugins/tenantry/skills/tenantry-pro/SKILL.md) and
 https://tenantry.dev/docs/pro/installation.
 

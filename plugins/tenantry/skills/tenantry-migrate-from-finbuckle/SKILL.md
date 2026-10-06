@@ -151,7 +151,9 @@ What each kind of operation means is in [references/ef-core.md](references/ef-co
 `services.ConfigurePerTenant<TOptions, TTenantInfo>(...)` becomes
 `tenant.ConfigurePerTenant(perTenant => perTenant.Configure<TOptions>((options, t) => ...))` inside `AddTenantry`
 (Tenantry.Options). Code that reads per-tenant values through `IOptions<TOptions>` changes to
-`IOptionsSnapshot<TOptions>`, or `IOptionsMonitor<TOptions>` in a singleton.
+`IOptionsSnapshot<TOptions>`, or `IOptionsMonitor<TOptions>` in a singleton. Tenantry logs warning 2008
+(`OrdinaryOptionsReadAsTenant`) the first time it sees `IOptions<TOptions>` of a per-tenant type read while a tenant is
+current, naming the type: each one it names is a read still to change.
 
 `WithPerTenantAuthentication()` becomes `ConfigurePerTenant` on each scheme's options, such as
 `Configure<OpenIdConnectOptions>("oidc", (o, t) => o.Authority = ...)`, and the tenant is resolved before

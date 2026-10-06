@@ -31,9 +31,9 @@ Decide these with the user before writing code, and keep the answers in the READ
    ```
 
    `tenantry-api` is an ASP.NET Core API with EF Core: callers authenticate with a JWT bearer token and name the tenant
-   in the `X-Tenant-Id` header, which Tenantry checks against the token's `tenant` claims. `tenantry-worker` is a worker
-   service with EF Core that runs each message as the tenant it names, with `RunInScopeAsync`. Both use `string` tenant
-   ids, an in-memory store and SQLite, create the schema at startup and reference the Tenantry packages of the
+   in the `X-Tenant-Id` header, which Tenantry checks against the token's `tenant_id` claims. `tenantry-worker` is a
+   worker service with EF Core that runs each message as the tenant it names, with `RunInScopeAsync`. Both use `string`
+   tenant ids, an in-memory store and SQLite, create the schema at startup and reference the Tenantry packages of the
    templates' version. Steps 2 to 5 then change what the template wrote to the answers above: the key type, the store,
    the provider, and a first migration in place of `EnsureCreatedAsync`. The template has no test project, so step 6
    still applies.

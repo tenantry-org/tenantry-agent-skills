@@ -28,6 +28,7 @@ Pro runs inside the Core registration: keep `AddTenantry`, the resolvers and the
 | The tenant carried into Hangfire or Quartz.NET jobs, or MassTransit or Rebus messages | Put the id in the job and use `RunInScopeAsync` | `pro.AddHangfirePropagation()` and the others | [background-jobs.md](references/background-jobs.md) |
 | A job that runs once for every tenant, or periodically | A loop over `ITenantLookup<TKey>` | `TenantBackgroundService<TKey>`, `PeriodicTenantBackgroundService<TKey>` | [background-jobs.md](references/background-jobs.md) |
 | An audit log of every insert, update and delete, with the tenant | No | `pro.AddAuditLogging(...)` | [audit-logging.md](references/audit-logging.md) |
+| A tenant invalidated on every instance of the app, over MassTransit | `BroadcastInvalidations` with a channel of your own | `pro.BroadcastInvalidationsOverMassTransit()` | [background-jobs.md](references/background-jobs.md#invalidating-a-tenant-on-every-instance) |
 | Connection strings read from a secrets store, cached per tenant | Wrap the provider yourself | `pro.CacheConnectionStrings()` | [connection-string-caching.md](references/connection-string-caching.md) |
 | Health checks for every tenant database | No | `Tenantry.Pro.EfCore` health checks | https://tenantry.dev/docs/pro/health-checks |
 
@@ -42,8 +43,8 @@ setting, kept out of source control. Never write the token or the key into a com
 ## Steps for any Pro feature
 
 1. Confirm the subscription, then set up the feed and the key as in the installation reference.
-2. Add the packages the feature needs (`Tenantry.Pro`, plus `Tenantry.Pro.EfCore` for schemas, provisioning, migrations
-   and audit, or the integration package for a job or message library).
+2. Add the packages the feature needs (`Tenantry.Pro`, plus `Tenantry.Pro.EfCore` for schemas, mixed mode with EF Core,
+   provisioning, migrations and audit, or the integration package for a job or message library).
 3. Add `tenant.UsePro(pro => ...)` to the existing `AddTenantry` call, with the feature's registration from its
    reference. Methods that take a context type (`AddDatabaseProvisioning<TContext>()`,
    `AddSchemaProvisioning<TContext>()`, `AddMigrations<TContext>()`) return the builder without its key type, so call

@@ -62,8 +62,8 @@ SchemaProvisioningService => ITenantProvisioner, with pro.AddSchemaProvisioning
 SchemaProvisioningOptions.ConnectionString
 ITenantInfrastructureProvisioner => pro.AddDatabaseProvisioning or pro.AddSchemaProvisioning
 ITenantMigrator => pro.AddMigrations
-CompletedUpTo => TenantProvisioningResult.Steps
-TenantProvisioningStep => TenantProvisioningResult.Steps
+CompletedUpTo => TenantLifecycleResult.Steps
+TenantProvisioningStep => TenantLifecycleResult.Steps
 UseAuditLogging => pro.AddAuditLogging, with options.UseTenantry()
 AddTenantryDatabaseCheck => AddTenantDatabaseCheck
 AddTenantryMigrationCheck => AddTenantMigrationCheck
@@ -90,6 +90,20 @@ TenantMetricsOptions => the function Tenantry Core's tenant.TagRequestMetrics() 
 IConnectionStringCache => ITenantInvalidator<TKey>.InvalidateAsync
 ITenantPropagator.Use => ITenantPropagator.MakeCurrent
 AppliedMigrationsNotRecorded => nothing: a result's AppliedMigrations is read from the migration history before and after the run
+ITenantSeeder => ITenantProvisioningStep, added with pro.AddProvisioningStep
+AddSeeder => pro.AddProvisioningStep, with an ITenantProvisioningStep
+CreateContext => pro.UseAdminContext<TContext>(…), once for each context type
+DatabaseProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
+SchemaProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
+SchemaDeprovisioningOptions => pro.UseAdminContext<TContext>(…), for the context offboarding creates
+IProRegistration => Tenantry Core's ITenantRegistration, applied with pro.Tenant.Add
+IProBuilder.Add => pro.Tenant.Add, with Tenantry Core's ITenantRegistration
+TenantryRebusHeadersExtensions => TenantHeaders.For, for Rebus's headers
+headers.WithTenant => TenantHeaders.For, for Rebus's headers
+string>().WithTenant => TenantHeaders.For, for Rebus's headers
+pro.Add(new => pro.Tenant.Add(new …), with Tenantry Core's ITenantRegistration
+TenantProvisioningResult => TenantLifecycleResult
+TenantDeprovisioningResult => TenantLifecycleResult
 
 # Tenantry Core: its eng/common/removed-names.txt at the release the skills target, which
 # .github/workflows/update-version.yml copies in below this line when it moves the skills to a newer release.

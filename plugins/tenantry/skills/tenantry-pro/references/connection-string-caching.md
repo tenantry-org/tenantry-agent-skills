@@ -16,8 +16,9 @@ The connection-string registration it caches is Core's, in the tenantry-database
 - It wraps the provider `UseConnectionStrings` registers (before or after `UsePro`), or one you register before
   `UsePro`. With no provider the app does not start. A provider registered after `UsePro` replaces the cache, and a
   warning at startup says so.
-- When a tenant's connection details change, call `ITenantInvalidator<TKey>.InvalidateAsync(tenantId)`; after
-  rotating every tenant's credentials, `InvalidateAllAsync()`. Each instance has its own cache.
+- When a tenant's connection details change, call `ITenantInvalidator<TKey>.InvalidateAsync(tenantId)`; after rotating
+  every tenant's credentials, `InvalidateAllAsync()`. Each instance has its own cache: to clear every instance,
+  broadcast the invalidations ([background-jobs.md](background-jobs.md#invalidating-a-tenant-on-every-instance)).
 - Caching does not change which reads work: with only `GetConnectionStringAsync`, synchronous reads still throw, and
   only asynchronous EF Core calls work on the scoped context.
 - `Duration` must be positive; `TimeSpan.MaxValue` caches until you invalidate.

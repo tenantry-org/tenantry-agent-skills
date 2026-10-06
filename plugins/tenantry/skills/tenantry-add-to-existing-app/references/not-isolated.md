@@ -20,15 +20,18 @@ Raw SQL with the tenant added:
 ```csharp
 public sealed class OrderTotals(AppDbContext db, ITenantContext<Guid> tenants)
 {
-    public Task<List<decimal>> TotalsAsync(CancellationToken ct) =>
-        db.Database
-            .SqlQuery<decimal>($"""SELECT "Total" FROM "Orders" WHERE "TenantId" = {tenants.CurrentTenantId}""")
+    public Task<List<decimal>> TotalsAsync(CancellationToken ct)
+    {
+        var tenantId = tenants.RequiredTenant.TenantId;
+        return db.Database
+            .SqlQuery<decimal>($"""SELECT "Total" FROM "Orders" WHERE "TenantId" = {tenantId}""")
             .ToListAsync(ct);
+    }
 }
 ```
 
-Check `tenants.HasTenant` first where the code can run without a tenant: `CurrentTenantId` is then the key type's
-default, which matches no rows but does not throw.
+`RequiredTenant` throws `TenantNotResolvedException` when no tenant is current. `CurrentTenantId` would give the key
+type's default there instead, which matches no rows and does not throw.
 
 Tenantry's analyzers report both: raw SQL on `Database` as TNY1003 (info) and `IgnoreQueryFilters()` on a query
 that reads a tenant-owned entity as TNY1002 (a warning). Where the code is meant to cross tenants, silence the one

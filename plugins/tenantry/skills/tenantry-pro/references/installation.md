@@ -22,29 +22,29 @@ that is committed.
   <packageSources>
     <clear />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
-    <add key="tenantry-pro" value="https://tenantry.dev/feed/v3/index.json" protocolVersion="3" />
+    <add key="TenantryPro" value="https://tenantry.dev/feed/v3/index.json" protocolVersion="3" />
   </packageSources>
   <packageSourceMapping>
     <packageSource key="nuget.org">
       <package pattern="*" />
     </packageSource>
-    <packageSource key="tenantry-pro">
+    <packageSource key="TenantryPro">
       <package pattern="Tenantry.Pro" />
       <package pattern="Tenantry.Pro.*" />
     </packageSource>
   </packageSourceMapping>
   <packageSourceCredentials>
-    <tenantry-pro>
+    <TenantryPro>
       <add key="Username" value="tenantry" />
       <add key="ClearTextPassword" value="%TENANTRY_FEED_TOKEN%" />
-    </tenantry-pro>
+    </TenantryPro>
   </packageSourceCredentials>
 </configuration>
 ```
 
 It holds no secrets and is committed: NuGet reads the token from the `TENANTRY_FEED_TOKEN` environment variable. The
 mapping sends `Tenantry.Pro` and `Tenantry.Pro.*` to the package feed and everything else, Tenantry Core included, to
-nuget.org. The element under `packageSourceCredentials` is named after the source's key, `tenantry-pro`; the feed
+nuget.org. The element under `packageSourceCredentials` is named after the source's key, `TenantryPro`; the feed
 reads only the password and accepts any user name. If the solution already has a `nuget.config`, merge these entries
 into it; with source mapping on, every source needs at least one pattern, so map the other feeds too.
 
@@ -133,7 +133,8 @@ jobs:
 ```
 
 A build that writes its own `nuget.config` without the credentials can pass them in the environment variable
-`NuGetPackageSourceCredentials_tenantry-pro`, set to `Username=tenantry;Password=<the feed token>`.
+`NuGetPackageSourceCredentials_TenantryPro`, set to `Username=tenantry;Password=<the feed token>`. That name is why
+the source's key has no hyphen: a shell cannot export a variable whose name has one.
 
 ## Docker builds
 
@@ -163,6 +164,6 @@ The `env=` option of a secret mount needs the Dockerfile syntax the first line s
 |---------|--------------|
 | `NU1301` with `401 (Unauthorized)` for a `tenantry.dev` address | The feed received no live token: `TENANTRY_FEED_TOKEN` is not set in this shell or CI step, has a trailing newline, or names a token revoked on the Pro access page |
 | `NU1301` with `403 (Forbidden)` for a `tenantry.dev` address | The token belongs to a subscription that has ended with no vested releases |
-| `NU1102: Unable to find package Tenantry.Pro with version`, with versions found in `tenantry-pro` | That version is not served to this subscription (after it ended, a release past the vested-through date) or does not exist |
-| `NU1101: Unable to find package Tenantry.Pro` naming only nuget.org | The `tenantry-pro` source or its mapping is missing, or another `nuget.config` with `<clear />` wins (`dotnet nuget list source`) |
+| `NU1102: Unable to find package Tenantry.Pro with version`, with versions found in `TenantryPro` | That version is not served to this subscription (after it ended, a release past the vested-through date) or does not exist |
+| `NU1101: Unable to find package Tenantry.Pro` naming only nuget.org | The `TenantryPro` source or its mapping is missing, or another `nuget.config` with `<clear />` wins (`dotnet nuget list source`) |
 | `LicenseRequiredException` at startup | No key reached `Tenantry:License`, or it was mistyped |

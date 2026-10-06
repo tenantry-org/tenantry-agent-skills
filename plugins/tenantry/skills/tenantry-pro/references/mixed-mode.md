@@ -56,6 +56,9 @@ connects to the database `UseConnectionStrings` returns, and schema tenants' mod
   `[SharedAcrossTenants]` or `modelBuilder.Entity<T>().IsSharedAcrossTenants()` (namespace `Tenantry.EfCore`).
   Otherwise the context throws `TenantIsolationViolationException` (`ModelConfiguration`) for a `Shared` tenant, and the
   host logs a warning at startup naming the types.
+- Every `Tenantry.Pro.EfCore` feature (`UseSchemaPerTenant`, provisioning, `AddMigrations` and the others) adds that
+  refusal. An app that uses none of them adds it with `pro.GuardSharedTenants()`. In mixed mode, a host that registers
+  an EF Core context without it does not start, and the error names that call.
 - Provisioning creates a database only for `Database` tenants and a schema only for `Schema` tenants; offboarding drops
   only what the tenant has, and deletes a `Shared` tenant's rows with `AddSharedDataDeletion<TContext>()`.
 - Migrations and health checks run per distinct database or schema, and once for the shared database's default schema

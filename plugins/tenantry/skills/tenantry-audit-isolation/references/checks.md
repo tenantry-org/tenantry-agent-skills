@@ -43,12 +43,13 @@ Search: `SqlQuery`, `SqlQueryRaw`, `ExecuteSql`, `ExecuteSqlRaw`, `ExecuteSqlInt
 `.QueryFirst`, `.QuerySingle` (Dapper).
 
 - High: SQL that reads or changes a tenant-owned table without a `TenantId` predicate bound to the current tenant
-  (`ITenantContext<TKey>.CurrentTenantId`).
+  (`ITenantContext<TKey>.RequiredTenant.TenantId`, or `CurrentTenantId`).
 - High: a `TenantId` predicate whose value comes from request input (a route value, the body) rather than the current
   tenant.
 - Not a finding: `FromSql`, `FromSqlRaw` or `FromSqlInterpolated` on a tenant-owned entity: EF Core applies the tenant
   filter over it.
-- Medium: tenant SQL that runs where the tenant may be absent without checking `HasTenant`.
+- Medium: tenant SQL that runs where the tenant may be absent without checking `HasTenant` or reading
+  `RequiredTenant`, which throws when no tenant is current.
 
 ## 4. `IgnoreQueryFilters()`
 
@@ -90,6 +91,11 @@ Read `Program.cs` (or `Startup.Configure`).
 - High: `AllowMissingTenant()` on an endpoint that writes tenant data through maintenance code or raw SQL.
 - Low: without `UseTenantResolution()`, `UseTenantry()` before `UseAuthorization()` when no authorization policy reads
   the tenant: an anonymous caller gets 403 instead of 401.
+- Medium: SignalR hubs (`AddSignalR`, `MapHub`) without `options.AddTenantry()` in `AddSignalR(...)` or
+  `AddHubOptions<THub>(...)`, or Blazor Server (`AddInteractiveServerComponents()`) without `.AddTenantry()` after it.
+  The tenant is checked once, when the connection opens, so a tenant suspended or deleted later keeps working over the
+  connections it has open
+  ([SignalR and Blazor Server](https://tenantry.dev/docs/core/aspnetcore-integration#signalr-and-blazor-server)).
 
 With `UseTenantResolution()` (authentication settings per tenant, https://tenantry.dev/docs/core/authentication-per-tenant):
 

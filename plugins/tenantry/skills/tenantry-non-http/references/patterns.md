@@ -18,10 +18,11 @@ await scopes.RunInScopeAsync(message.TenantId, async (scope, ct) =>
 ```
 
 It looks the tenant up, runs the work in a fresh DI scope with the tenant current, and disposes the scope. It throws
-`TenantNotFoundException` (carrying `TenantId`) for an id the store does not have, such as a tenant deleted since the
-message was queued, and `TenantInactiveException` for one `ValidateTenantActivity` refuses. Both derive from
-`TenantNotResolvedException`. A consumer usually logs them and drops or dead-letters the message; catch the base type,
-so a suspended tenant's message does not stop a `BackgroundService` (and with it, by default, the host):
+`TenantNotFoundException` for an id the store does not have, such as a tenant deleted since the message was queued, and
+`TenantInactiveException` for one `ValidateTenantActivity` refuses. Both derive from `TenantNotResolvedException`, and
+both carry the id in `TenantId`, an `object` that holds the app's key type (cast it to `Guid` with `Guid` keys). A
+consumer usually logs them and drops or dead-letters the message; catch the base type, so a suspended tenant's message
+does not stop a `BackgroundService` (and with it, by default, the host):
 
 ```csharp
 try
@@ -127,7 +128,7 @@ using (setter.MakeCurrent(acme))
 ## Work that runs later
 
 ```csharp
-queue.Enqueue(new InvoiceRequested(tenantContext.CurrentTenantId, number));   // capture the id
+queue.Enqueue(new InvoiceRequested(tenantContext.RequiredTenant.TenantId, number));   // capture the id
 // ... later, in the consumer:
 await scopes.RunInScopeAsync(message.TenantId, (scope, ct) => HandleAsync(scope, message, ct), ct);
 ```

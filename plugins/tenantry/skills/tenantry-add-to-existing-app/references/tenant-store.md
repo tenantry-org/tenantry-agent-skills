@@ -89,6 +89,11 @@ tenant.ValidateTenantActivity(t => t is OrganisationTenant { IsActive: true });
 Check for the active state rather than the suspended one, so a descriptor of another type is refused. A suspended
 tenant's requests get `403` where a tenant is required, and `RunInScopeAsync` throws `TenantInactiveException`.
 
+When the check needs services, implement `ITenantActivityValidator<TKey>` and add it with
+`tenant.ValidateTenantActivity<TValidator>()`, which registers it as a singleton. It cannot take a scoped service such
+as a `DbContext` in its constructor: create a scope inside it. Do not register the validator yourself as scoped or
+transient: `ITenantActivity<TKey>` then throws when it is first resolved.
+
 ## Caching
 
 The middleware looks the tenant up on every request. To avoid a database read each time:
@@ -98,6 +103,9 @@ tenant.CacheTenants(o => o.Duration = TimeSpan.FromMinutes(1));   // 5 minutes b
 ```
 
 When a tenant is suspended, renamed or deleted, call `ITenantInvalidator<TKey>.InvalidateAsync(tenantId)`, or the
-cached copy is served until it expires. Each instance of the app has its own cache.
+cached copy is served until it expires. Each instance of the app has its own cache. With several instances, publish
+each invalidation to the others with `tenant.BroadcastInvalidations(...)`
+(https://tenantry.dev/docs/core/tenant-stores#several-instances), or, with Tenantry Pro on MassTransit,
+`pro.BroadcastInvalidationsOverMassTransit()`.
 
 More: https://tenantry.dev/docs/core/tenant-stores

@@ -136,10 +136,11 @@ With ASP.NET Core Identity, name each of its four cookie schemes this way: `Iden
 
 The cookie name is the recommended set-up; Tenantry's refusal is the safety net. When the validators refuse a tenant
 that was current during authentication and the request has a signed-in user, the whole request is refused (`403` by
-default) on every endpoint, sign-in pages included. Tenantry signs out every scheme that signs out locally (each
-cookie scheme), so `OnSigningOut` handlers run on these refusals: do not treat them as a logout the user asked for. The
-response carries no cookies set after `UseTenantResolution()` and no sign-out redirect. A failed sign-out logs event
-1015; event 1014 at startup means the authorization-order check no longer works on that ASP.NET Core version.
+default) on every endpoint, sign-in pages included, and `OnRejected` runs for it as for any other rejection. Tenantry
+signs out every scheme that signs out locally (each cookie scheme), so `OnSigningOut` handlers run on these refusals: do
+not treat them as a logout the user asked for. The response carries no cookies set after `UseTenantResolution()` and no
+sign-out redirect. A failed sign-out logs event 1015; event 1014 at startup means the authorization-order check no
+longer works on that ASP.NET Core version.
 
 Three more points from Core's docs:
 

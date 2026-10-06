@@ -58,6 +58,23 @@ Values are `Allow`, `Warn`, `Skip` and `Reject` (`TenantPropagationBehavior`). S
 The tenant a job or message names is read from the store and checked with `ValidateTenantActivity`, but the header
 itself is not authenticated: only let producers you control send to these queues.
 
+## Invalidating a tenant on every instance
+
+Each instance of the app caches tenants (`CacheTenants`) and connection strings (`pro.CacheConnectionStrings()`) on
+its own, and `ITenantInvalidator<TKey>.InvalidateAsync` clears only the instance that calls it. With MassTransit,
+`pro.BroadcastInvalidationsOverMassTransit()` (`Tenantry.Pro.MassTransit`) publishes each invalidation over the app's
+bus, and every other instance clears its own copies when it receives it:
+
+```csharp
+// Inside the app's existing AddTenantry(tenant => ...) call, beside AddMassTransit:
+tenant.UsePro(pro => pro.BroadcastInvalidationsOverMassTransit());
+```
+
+It covers the invalidations provisioning and offboarding make, and does not need `pro.AddMassTransitPropagation()`. An
+instance that is starting or has lost the broker misses what is published meanwhile, so keep cache durations no
+longer than a stale tenant may be served. Without MassTransit, use Tenantry Core's `tenant.BroadcastInvalidations(...)`
+with a channel of your own (https://tenantry.dev/docs/core/tenant-stores#several-instances).
+
 ## Work over every tenant
 
 ```csharp

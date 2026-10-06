@@ -60,8 +60,10 @@ suspended tenants leaves them behind.
 
 To migrate with other credentials than the application's, call `pro.UseAdminContext<AppDbContext>(sp => …)` once:
 provisioning, migrations, offboarding's drops and the migration health check all use the context it builds. The
-delegate must return a new context each time. With a schema per tenant, build it with
-`UseApplicationServiceProvider(sp)` and `UseTenantry()` so it gets the schema. In mixed mode it is called for every
-tenant, so it must also connect `Shared` tenants to the shared database.
+delegate must return a new context each time. Build its connection string from the tenant's own
+(`sp.GetRequiredService<CurrentTenantConnectionString<TKey>>().Get()`) and change only the login, so each tenant's
+context reaches that tenant's database. In mixed mode it is called for every tenant, `Shared` tenants included, which
+this connects to the shared database. With a schema per tenant, build the context with
+`UseApplicationServiceProvider(sp)` and `UseTenantry()` so it gets the schema.
 
 More: https://tenantry.dev/docs/pro/migration-orchestration
