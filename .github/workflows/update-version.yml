@@ -148,7 +148,7 @@ jobs:
       - name: Run the checks
         id: checks
         run: |
-          args="$(scripts/fetch-docs.sh "$VERSION" "$RUNNER_TEMP")"
+          args="$(scripts/fetch-docs.sh "$RUNNER_TEMP")"
           # shellcheck disable=SC2086 # args holds several options
           if node scripts/validate.mjs $args > "$RUNNER_TEMP/validate.log" 2>&1; then
             echo "validate=passed" >> "$GITHUB_OUTPUT"
