@@ -9,8 +9,8 @@
 .Invalidate( => ITenantInvalidator<TKey>.InvalidateAsync
 .InvalidateAll( => ITenantInvalidator<TKey>.InvalidateAllAsync
 
-# Tenantry Pro: copied by hand from Tenantry Pro's eng/removed-names.txt, which is in a private repository. Copy the
-# new names after each Pro release.
+# Tenantry Pro: its eng/removed-names.txt at the release the skills target, copied by hand because it is in a private
+# repository. Copy the new names after each Pro release.
 Tenantry.Pro.HealthChecks => Tenantry.Pro.EfCore
 Tenantry.Pro.EfCore.SqlServer => Tenantry.Pro.EfCore, which works with your context's EF Core provider
 Tenantry.Pro.EfCore.Npgsql => Tenantry.Pro.EfCore, which works with your context's EF Core provider
@@ -90,18 +90,6 @@ TenantMetricsOptions => the function Tenantry Core's tenant.TagRequestMetrics() 
 IConnectionStringCache => ITenantInvalidator<TKey>.InvalidateAsync
 ITenantPropagator.Use => ITenantPropagator.MakeCurrent
 AppliedMigrationsNotRecorded => nothing: a result's AppliedMigrations is read from the migration history before and after the run
-ITenantSeeder => ITenantProvisioningStep, added with pro.AddProvisioningStep
-AddSeeder => pro.AddProvisioningStep, with an ITenantProvisioningStep
-CreateContext => pro.UseAdminContext<TContext>(…), once for each context type
-DatabaseProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
-SchemaProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
-SchemaDeprovisioningOptions => pro.UseAdminContext<TContext>(…), for the context offboarding creates
-IProRegistration => Tenantry Core's ITenantRegistration, applied with pro.Tenant.Add
-IProBuilder.Add => pro.Tenant.Add, with Tenantry Core's ITenantRegistration
-TenantryRebusHeadersExtensions => TenantHeaders.For, for Rebus's headers
-headers.WithTenant => TenantHeaders.For, for Rebus's headers
-string>().WithTenant => TenantHeaders.For, for Rebus's headers
-pro.Add(new => pro.Tenant.Add(new …), with Tenantry Core's ITenantRegistration
 
 # Tenantry Core: its eng/common/removed-names.txt at the release the skills target, which
 # .github/workflows/update-version.yml copies in below this line when it moves the skills to a newer release.
