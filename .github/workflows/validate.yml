@@ -17,13 +17,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # The release the skills are written for. Its docs and its packages are what the links and code blocks are checked
-  # against. Until it is published, those two checks print a notice and pass; they start checking on their own once it
-  # is, by the next weekly run at the latest, so a mistake shows up then rather than being hidden by a setting someone
-  # has to remember to change.
-  TENANTRY_VERSION: 0.7.0
-
 jobs:
   validate:
     name: Manifests, skills, links and removed names
@@ -37,25 +30,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      # Each repository on its own: a missing tag in one leaves the other's headings checked. Only a missing tag is
-      # skipped; any other failure to reach a repository fails the step.
-      - name: Fetch the docs of the release the skills target
-        id: docs
+      # The release the skills target is in scripts/tenantry-version.txt, which update-version.yml raises when a newer
+      # Tenantry release is out. Until that release's tags exist, links to the docs are checked by page name only, with
+      # a notice, and the full check starts on its own once they do, by the next weekly run at the latest.
+      - name: Check against the docs of the release the skills target
         run: |
-          args=""
-          for pair in core:tenantry-core pro:tenantry-pro-docs; do
-            group="${pair%%:*}" repo="${pair#*:}"
-            url="https://github.com/tenantry-org/$repo"
-            tags="$(git ls-remote --tags "$url" "refs/tags/v$TENANTRY_VERSION")"
-            if [[ -z "$tags" ]]; then
-              echo "::notice::$repo has no v$TENANTRY_VERSION tag yet, so links to the $group docs are checked by page name only."
-              continue
-            fi
-            git clone --quiet --depth 1 --branch "v$TENANTRY_VERSION" "$url" "$RUNNER_TEMP/$repo"
-            args="$args --$group-docs $RUNNER_TEMP/$repo/docs"
-          done
-          echo "args=$args" >> "$GITHUB_OUTPUT"
-      - run: node scripts/validate.mjs ${{ steps.docs.outputs.args }}
+          args="$(scripts/fetch-docs.sh "$RUNNER_TEMP")"
+          # shellcheck disable=SC2086 # args holds several options
+          node scripts/validate.mjs $args
 
   snippets:
     name: Code blocks build against Tenantry
@@ -68,7 +50,8 @@ jobs:
         with:
           dotnet-version: 10.0.x
       # Builds the Tenantry Core blocks against the packages on nuget.org. The tenantry-pro skill's blocks need the Pro
-      # packages, which are on a private feed, so they are built locally (scripts/check-snippets.sh).
+      # packages, which are on a private feed, so they are built locally (scripts/check-snippets.sh). Until the release
+      # the skills target is on nuget.org, this prints a notice and passes.
       - run: scripts/check-snippets.sh
         env:
           SKIP_UNPUBLISHED: 1

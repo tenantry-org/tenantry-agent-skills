@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Checks this repository before it is published: the Claude Code marketplace and plugin manifests, the frontmatter of
 // every skill, relative links and their anchors, links to the Tenantry docs, the writing conventions, and API names
-// that Tenantry 0.7 removed. Needs Node.js 20 or later and nothing else.
+// that Tenantry removed. Needs Node.js 20 or later and nothing else.
 //
 //   node scripts/validate.mjs            offline checks
 //   node scripts/validate.mjs --online   also requests every https://tenantry.dev link and fails on a non-200 answer
@@ -361,24 +361,40 @@ for (const [group, folder] of Object.entries(docsFolders)) {
   if (folder && !existsSync(folder)) errors.push(`--${group}-docs ${folder} does not exist`);
 }
 
-// Names that no longer exist (scripts/removed-names.txt).
-const removedNames = readFileSync(join(root, 'scripts', 'removed-names.txt'), 'utf8')
-  .split(/\r?\n/)
-  .map((line) => line.split('#')[0].trim())
-  .filter((line) => line.length > 0)
-  .map((line) => {
-    const arrow = line.indexOf('=>');
-    const name = (arrow === -1 ? line : line.slice(0, arrow)).trim();
-    const replacement = arrow === -1 ? undefined : line.slice(arrow + 2).trim();
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = name.startsWith('.') ? new RegExp(escaped) : new RegExp(`(?<![\\w.])${escaped}(?![\\w])`);
-    return { name, replacement, pattern };
-  });
+// Names that no longer exist, in the format of scripts/removed-names.txt and Tenantry's own lists. A name matches the
+// way Tenantry's check-removed-names.cs matches it: as a whole identifier or dotted name, so "o.CreateContext" names
+// CreateContext. One that starts with "." matches anywhere.
+function readRemovedNames(file) {
+  return readFileSync(file, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.split('#')[0].trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const arrow = line.indexOf('=>');
+      const name = (arrow === -1 ? line : line.slice(0, arrow)).trim();
+      const replacement = arrow === -1 ? undefined : line.slice(arrow + 2).trim();
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = name.startsWith('.') ? new RegExp(escaped) : new RegExp(`(?<!\\w)${escaped}(?!\\w)`);
+      return { name, replacement, pattern };
+    });
+}
+const removedNamesFile = join(root, 'scripts', 'removed-names.txt');
+const removedNames = readRemovedNames(removedNamesFile);
+
+// Given the Tenantry Core repository at the release the skills target (--core-docs <tenantry-core>/docs), every name in
+// its eng/common/removed-names.txt must be in scripts/removed-names.txt too.
+const coreRemovedNamesFile = docsFolders.core && join(docsFolders.core, '..', 'eng', 'common', 'removed-names.txt');
+if (coreRemovedNamesFile && existsSync(coreRemovedNamesFile)) {
+  const listed = new Set(removedNames.map(({ name }) => name));
+  for (const { name } of readRemovedNames(coreRemovedNamesFile)) {
+    if (!listed.has(name)) error(removedNamesFile, `has no "${name}", which Tenantry Core's eng/common/removed-names.txt lists`);
+  }
+}
 
 function checkRemovedNames(file, line, number) {
   for (const { name, replacement, pattern } of removedNames) {
     if (pattern.test(line)) {
-      error(file, `line ${number} names ${name}, which Tenantry 0.7 does not have${replacement ? `; use ${replacement}` : ''}`);
+      error(file, `line ${number} names ${name}, which Tenantry no longer has${replacement ? `; use ${replacement}` : ''}`);
     }
   }
 }
@@ -406,11 +422,11 @@ function codeBlocks(text) {
   return blocks;
 }
 
-// The release the skills target, set once, in the workflow (TENANTRY_VERSION). Every dotnet add of a Tenantry package
+// The release the skills target, set once, in scripts/tenantry-version.txt. Every dotnet add of a Tenantry package
 // pins exactly that version.
-const workflowFile = join(root, '.github', 'workflows', 'validate.yml');
-const targetVersion = /^\s*TENANTRY_VERSION:\s*['"]?([^'"\s#]+)/m.exec(readFileSync(workflowFile, 'utf8'))?.[1];
-if (!targetVersion) errors.push(`${relative(root, workflowFile)}: sets no TENANTRY_VERSION`);
+const versionFile = join(root, 'scripts', 'tenantry-version.txt');
+const targetVersion = readFileSync(versionFile, 'utf8').trim();
+if (!/^\d+\.\d+\.\d+$/.test(targetVersion)) error(versionFile, `holds "${targetVersion}", not a version X.Y.Z`);
 
 const docsLinks = new Set();
 
@@ -421,12 +437,12 @@ function checkMarkdown(file) {
   lines.forEach((line, index) => {
     if (line.includes('\u2014')) error(file, `line ${index + 1} has an em dash`);
     checkRemovedNames(file, line, index + 1);
-    // Unpinned, dotnet add package installs the newest release, which before 0.7.0 is 0.6, with isolation gaps.
+    // Unpinned, dotnet add package installs whatever release is newest, not the one the skills are written for.
     if (/\bdotnet add\b.*\bpackage Tenantry[\w.]*/.test(line)) {
       const pinned = /--version\s+([\w.*-]+)/.exec(line)?.[1];
       if (pinned !== targetVersion) {
         error(file, `line ${index + 1} adds a Tenantry package with ${pinned ? `--version ${pinned}` : 'no --version'}; ` +
-          `pin --version ${targetVersion}, the workflow's TENANTRY_VERSION`);
+          `pin --version ${targetVersion}, the release in scripts/tenantry-version.txt`);
       }
     }
   });

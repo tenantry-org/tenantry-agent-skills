@@ -1,8 +1,7 @@
-# API, namespace and package names that Tenantry 0.7 no longer has, which no file in this repository may name
-# (scripts/validate.mjs). Copied from Tenantry Core's eng/common/removed-names.txt and Tenantry Pro's
-# eng/removed-names.txt on their master branches before the 0.7.0 release; update this file from them when they change.
-# One name per line, then optionally " => " and what replaces it. A name matches as a whole identifier or dotted name.
-# A name that starts with "." matches only as a method call: ".Use(" matches "tenantContext.Use(tenant)".
+# API, namespace and package names that Tenantry no longer has, which no file in this repository may name
+# (scripts/validate.mjs). One name per line, then optionally " => " and what replaces it. A name matches as a whole
+# identifier or dotted name, and a dotted name also matches the start of a longer one. A name that starts with "."
+# matches only as a method call: ".Use(" matches "tenantContext.Use(tenant)".
 
 # Renamed in 0.7, but too common a word to match on its own.
 .Use( => ITenantContextSetter.MakeCurrent, or ITenantPropagator.MakeCurrent
@@ -10,39 +9,8 @@
 .Invalidate( => ITenantInvalidator<TKey>.InvalidateAsync
 .InvalidateAll( => ITenantInvalidator<TKey>.InvalidateAllAsync
 
-# Tenantry Core (eng/common/removed-names.txt)
-AddTenantryCore => AddTenantry
-IAspNetCoreTenantBuilder => ITenantBuilder
-Tenantry.Core.Exceptions => the Tenantry namespace
-Tenantry.Core.Stores => the Tenantry namespace
-Tenantry.Core.Extensions => Microsoft.Extensions.DependencyInjection (no using needed)
-Tenantry.AspNetCore.Extensions => Microsoft.AspNetCore.Builder (no using needed)
-Tenantry.EfCore.Extensions => Microsoft.EntityFrameworkCore (no using needed)
-Tenantry.AspNetCore.Attributes => Tenantry.AspNetCore
-Tenantry.AspNetCore.Resolution => Tenantry.AspNetCore
-Tenantry.Core.MissingTenantBehavior => Tenantry.EfCore.MissingTenantBehavior
-ITenantServiceScope => ITenantScope, which ITenantScopeFactory creates
-ITenantScoped => ITenantEntity
-TenantScoped => TenantEntity
-ITenantStoreAccessor => ITenantLookup
-ITenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
-TenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
-AddTenantConnectionStrings => tenant.UseConnectionStrings
-DetectSpoofedWrites
-EntityTypeName => TenantIsolationViolationException.TypeName
-MultiTenantDbContext => options.UseTenantry() on a plain DbContext
-ITenantAwareDbContext => options.UseTenantry() on a plain DbContext
-ApplyTenantFilters => options.UseTenantry()
-AddTenantInterceptors => options.UseTenantry()
-AddEfCoreIsolation => tenant.ConfigureEfCoreIsolation
-AddTenantDbContextPool => tenant.AddDbContextPerTenantDatabase
-__TenantryFilter__ => TenantryQueryFilters.Tenant
-TenantIds.IsUnset => TenantIds.IsReserved
-ITenantStoreCache => ITenantInvalidator
-TenantConnectionStringProvider => UseConnectionStrings(options => …); resolve ITenantConnectionStringProvider, and wrap it with DecorateConnectionStrings
-UseNoTenant => ITenantContextSetter.MakeNoTenantCurrent
-
-# Tenantry Pro (eng/removed-names.txt)
+# Tenantry Pro: copied by hand from Tenantry Pro's eng/removed-names.txt, which is in a private repository. Copy the
+# new names after each Pro release.
 Tenantry.Pro.HealthChecks => Tenantry.Pro.EfCore
 Tenantry.Pro.EfCore.SqlServer => Tenantry.Pro.EfCore, which works with your context's EF Core provider
 Tenantry.Pro.EfCore.Npgsql => Tenantry.Pro.EfCore, which works with your context's EF Core provider
@@ -121,3 +89,49 @@ AddTenantMetrics => Tenantry Core's tenant.TagRequestMetrics()
 TenantMetricsOptions => the function Tenantry Core's tenant.TagRequestMetrics() takes
 IConnectionStringCache => ITenantInvalidator<TKey>.InvalidateAsync
 ITenantPropagator.Use => ITenantPropagator.MakeCurrent
+AppliedMigrationsNotRecorded => nothing: a result's AppliedMigrations is read from the migration history before and after the run
+ITenantSeeder => ITenantProvisioningStep, added with pro.AddProvisioningStep
+AddSeeder => pro.AddProvisioningStep, with an ITenantProvisioningStep
+CreateContext => pro.UseAdminContext<TContext>(…), once for each context type
+DatabaseProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
+SchemaProvisioningOptions => pro.UseAdminContext<TContext>(…), for the context provisioning creates
+SchemaDeprovisioningOptions => pro.UseAdminContext<TContext>(…), for the context offboarding creates
+IProRegistration => Tenantry Core's ITenantRegistration, applied with pro.Tenant.Add
+IProBuilder.Add => pro.Tenant.Add, with Tenantry Core's ITenantRegistration
+TenantryRebusHeadersExtensions => TenantHeaders.For, for Rebus's headers
+headers.WithTenant => TenantHeaders.For, for Rebus's headers
+string>().WithTenant => TenantHeaders.For, for Rebus's headers
+pro.Add(new => pro.Tenant.Add(new …), with Tenantry Core's ITenantRegistration
+
+# Tenantry Core: its eng/common/removed-names.txt at the release the skills target, which
+# .github/workflows/update-version.yml copies in below this line when it moves the skills to a newer release.
+AddTenantryCore => AddTenantry
+IAspNetCoreTenantBuilder => ITenantBuilder
+Tenantry.Core.Exceptions => the Tenantry namespace
+Tenantry.Core.Stores => the Tenantry namespace
+Tenantry.Core.Extensions => Microsoft.Extensions.DependencyInjection (no using needed)
+Tenantry.AspNetCore.Extensions => Microsoft.AspNetCore.Builder (no using needed)
+Tenantry.EfCore.Extensions => Microsoft.EntityFrameworkCore (no using needed)
+Tenantry.AspNetCore.Attributes => Tenantry.AspNetCore
+Tenantry.AspNetCore.Resolution => Tenantry.AspNetCore
+Tenantry.Core.MissingTenantBehavior => Tenantry.EfCore.MissingTenantBehavior
+ITenantServiceScope => ITenantScope, which ITenantScopeFactory creates
+ITenantScoped => ITenantEntity
+TenantScoped => TenantEntity
+ITenantStoreAccessor => ITenantLookup
+ITenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
+TenantConnectionStringResolver => ITenantConnectionStringProvider, or CurrentTenantConnectionString for the current tenant
+AddTenantConnectionStrings => tenant.UseConnectionStrings
+DetectSpoofedWrites
+EntityTypeName => TenantIsolationViolationException.TypeName
+MultiTenantDbContext => options.UseTenantry() on a plain DbContext
+ITenantAwareDbContext => options.UseTenantry() on a plain DbContext
+ApplyTenantFilters => options.UseTenantry()
+AddTenantInterceptors => options.UseTenantry()
+AddEfCoreIsolation => tenant.ConfigureEfCoreIsolation
+AddTenantDbContextPool => tenant.AddDbContextPerTenantDatabase
+__TenantryFilter__ => TenantryQueryFilters.Tenant
+TenantIds.IsUnset => TenantIds.IsReserved
+ITenantStoreCache => ITenantInvalidator
+TenantConnectionStringProvider => UseConnectionStrings(options => …); resolve ITenantConnectionStringProvider, and wrap it with DecorateConnectionStrings
+UseNoTenant => ITenantContextSetter.MakeNoTenantCurrent

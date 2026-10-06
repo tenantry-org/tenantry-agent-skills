@@ -1,0 +1,246 @@
+name: update-version
+
+# Moves the skills to a newer Tenantry release. It raises scripts/tenantry-version.txt and the skills' version pins,
+# copies Tenantry Core's removed names, runs the checks, and opens a pull request that reports what they found. A pull
+# request opened with GITHUB_TOKEN starts no other workflow, so the checks run here. GITHUB_TOKEN cannot push a change
+# to a workflow file either, which is why the version is in scripts/tenantry-version.txt and not in validate.yml.
+
+on:
+  # Sent by a Tenantry release, with client_payload {"package": "core" or "pro", "version": "X.Y.Z"}.
+  repository_dispatch:
+    types: [tenantry-release]
+  schedule:
+    - cron: "0 4 * * 1"   # Mondays, 04:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: update-version
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BOT_NAME: github-actions[bot]
+  BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
+jobs:
+  find:
+    name: Find the newest Tenantry release
+    runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.target.outputs.current }}
+      version: ${{ steps.target.outputs.version }}
+      core: ${{ steps.target.outputs.core }}
+      branch: ${{ steps.target.outputs.branch }}
+      lease: ${{ steps.target.outputs.lease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: target
+        env:
+          PACKAGE: ${{ github.event.client_payload.package }}
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          current="$(tr -d '[:space:]' < scripts/tenantry-version.txt)"
+          if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::scripts/tenantry-version.txt holds \"$current\", not a version X.Y.Z."
+            exit 1
+          fi
+          # The newest stable Tenantry.Core on nuget.org.
+          core="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json \
+            | jq -r '.versions[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' | sort -V | tail -n 1)"
+          if [[ -z "$core" ]]; then
+            echo "::error::nuget.org lists no stable Tenantry.Core version."
+            exit 1
+          fi
+          target="$core"
+          # Tenantry Pro's packages are on a private feed, so a Pro release gives its version in the event.
+          case "$PACKAGE" in
+            "" | core) ;;
+            pro)
+              if [[ ! "$PAYLOAD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::The tenantry-release event's version is not X.Y.Z: $PAYLOAD_VERSION"
+                exit 1
+              fi
+              target="$(printf '%s\n' "$core" "$PAYLOAD_VERSION" | sort -V | tail -n 1)"
+              ;;
+            *)
+              echo "::error::The tenantry-release event's package is neither core nor pro: $PACKAGE"
+              exit 1
+              ;;
+          esac
+          if [[ "$(printf '%s\n' "$current" "$target" | sort -V | tail -n 1)" == "$current" ]]; then
+            echo "The skills target $current, and the newest Tenantry release is $target, so there is nothing to update."
+            exit 0
+          fi
+
+          branch="update-version/$target"
+          lease=""
+          if head="$(git ls-remote --exit-code --heads origin "$branch")"; then
+            # The branch is rebuilt from master on each run. Once someone else has pushed to it, it is theirs.
+            lease="${head%%[[:space:]]*}"
+            git fetch --quiet --depth 1 origin "refs/heads/$branch"
+            author="$(git log -1 --format=%ae FETCH_HEAD)"
+            if [[ "$author" != "$BOT_EMAIL" ]]; then
+              echo "::notice::$branch has a commit by $author, so it is left as it is."
+              exit 0
+            fi
+          fi
+          {
+            echo "current=$current"
+            echo "version=$target"
+            echo "core=$core"
+            echo "branch=$branch"
+            echo "lease=$lease"
+          } >> "$GITHUB_OUTPUT"
+
+  update:
+    name: Move the skills to Tenantry ${{ needs.find.outputs.version }}
+    needs: find
+    if: needs.find.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      CURRENT: ${{ needs.find.outputs.current }}
+      VERSION: ${{ needs.find.outputs.version }}
+      CORE: ${{ needs.find.outputs.core }}
+      BRANCH: ${{ needs.find.outputs.branch }}
+      LEASE: ${{ needs.find.outputs.lease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Raise the version and copy Tenantry Core's removed names
+        run: |
+          echo "$VERSION" > scripts/tenantry-version.txt
+          # Every mention of the old version, which covers each dotnet add package pin and the sentences that explain
+          # it, and the tenantry-version field in each skill's frontmatter.
+          export MINOR="${VERSION%.*}"
+          # shellcheck disable=SC2016 # the single quotes keep Perl's $ENV{...} from the shell
+          git ls-files -z '*.md' | xargs -0 perl -pi -e '
+            s/(?<![\d.])\Q$ENV{CURRENT}\E(?!\.?\d)/$ENV{VERSION}/g;
+            s/^(\s*tenantry-version:\s*)"[^"]*"/$1"$ENV{MINOR}"/;'
+
+          list=scripts/removed-names.txt
+          marker='^# .*update-version\.yml'
+          grep -q "$marker" "$list" || { echo "::error::$list has no line naming update-version.yml."; exit 1; }
+          core_list="$(curl -fsSL --retry 3 \
+            "https://raw.githubusercontent.com/tenantry-org/tenantry-core/v$CORE/eng/common/removed-names.txt")"
+          {
+            sed "/$marker/q" "$list"
+            grep -v '^#' <<< "$core_list" | sed '/^[[:space:]]*$/d'
+          } > "$RUNNER_TEMP/removed-names.txt"
+          mv "$RUNNER_TEMP/removed-names.txt" "$list"
+          git diff --stat
+
+      # Each check's result goes into the pull request, which is opened whether they pass or not.
+      - name: Run the checks
+        id: checks
+        run: |
+          args="$(scripts/fetch-docs.sh "$VERSION" "$RUNNER_TEMP")"
+          # shellcheck disable=SC2086 # args holds several options
+          if node scripts/validate.mjs $args > "$RUNNER_TEMP/validate.log" 2>&1; then
+            echo "validate=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "validate=failed" >> "$GITHUB_OUTPUT"
+          fi
+          if SKIP_UNPUBLISHED=1 scripts/check-snippets.sh > "$RUNNER_TEMP/snippets.log" 2>&1; then
+            echo "snippets=passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "snippets=failed" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/validate.log" "$RUNNER_TEMP/snippets.log"
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATE: ${{ steps.checks.outputs.validate }}
+          SNIPPETS: ${{ steps.checks.outputs.snippets }}
+        run: |
+          old_minor="${CURRENT%.*}"
+          new_minor="${VERSION%.*}"
+          # A new minor needs its prose read by hand: lines that still name the old minor version.
+          prose=""
+          if [[ "$new_minor" != "$old_minor" ]]; then
+            prose="$(git grep -nE "(^|[^0-9.])${old_minor//./\\.}([^0-9]|\$)" -- '*.md' | head -n 100 || true)"
+          fi
+          needs_edits=false
+          if [[ "$VALIDATE" != passed || "$SNIPPETS" != passed || -n "$prose" ]]; then
+            needs_edits=true
+          fi
+
+          body="$RUNNER_TEMP/body.md"
+          {
+            if [[ "$needs_edits" == true ]]; then
+              echo "Needs edits before it is merged: see below. Push them to this branch, and later runs leave it alone."
+              echo
+            fi
+            echo "Moves the skills from Tenantry $CURRENT to $VERSION. Opened by .github/workflows/update-version.yml."
+            echo
+            echo "- scripts/tenantry-version.txt, and every \`$CURRENT\` in the Markdown files, is now \`$VERSION\`."
+            echo "  That covers each \`dotnet add package\` pin."
+            echo "- \`tenantry-version\` in each skill's frontmatter is now \`$new_minor\`."
+            echo "- The Tenantry Core names in scripts/removed-names.txt are copied from Core's"
+            echo "  eng/common/removed-names.txt at v$CORE."
+            echo
+            echo "Tenantry Pro's eng/removed-names.txt is in a private repository, so this workflow cannot copy it. Add the"
+            echo "names Pro removed since $CURRENT to scripts/removed-names.txt by hand."
+            if [[ -n "$prose" ]]; then
+              echo
+              echo "## Lines that name $old_minor"
+              echo
+              echo "$VERSION is a new minor release. Read these lines against the changelog and update the ones it changes."
+              echo
+              echo '```text'
+              echo "$prose"
+              echo '```'
+            fi
+            for check in "validate.mjs:validate:$VALIDATE" "check-snippets.sh:snippets:$SNIPPETS"; do
+              IFS=: read -r name log result <<< "$check"
+              echo
+              echo "## $name: $result"
+              echo
+              if [[ "$name" == validate.mjs && "$result" != passed ]]; then
+                echo "Each line names a file and line to rewrite by hand. A removed name comes with what replaces it."
+                echo
+              fi
+              echo '```text'
+              head -n 100 "$RUNNER_TEMP/$log.log"
+              echo '```'
+            done
+          } > "$body"
+
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          git switch --create "$BRANCH"
+          git commit --quiet --all --message "Move the skills to Tenantry $VERSION"
+          gh auth setup-git
+          # An empty lease means the branch must not exist yet.
+          git push --force-with-lease="refs/heads/$BRANCH:$LEASE" origin "HEAD:refs/heads/$BRANCH"
+
+          title="Move the skills to Tenantry $VERSION"
+          pr="$(gh pr list --head "$BRANCH" --state open --json number,isDraft --jq '.[] | "\(.number) \(.isDraft)"')"
+          read -r number draft <<< "$pr"
+          if [[ -z "$number" ]]; then
+            flags=()
+            if [[ "$needs_edits" == true ]]; then flags+=(--draft); fi
+            gh pr create --base master --head "$BRANCH" --title "$title" --body-file "$body" "${flags[@]}"
+          else
+            gh pr edit "$number" --title "$title" --body-file "$body"
+            if [[ "$needs_edits" == true && "$draft" == false ]]; then
+              gh pr ready "$number" --undo
+            elif [[ "$needs_edits" == false && "$draft" == true ]]; then
+              gh pr ready "$number"
+            fi
+          fi

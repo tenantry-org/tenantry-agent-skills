@@ -6,8 +6,8 @@
 #   scripts/check-snippets.sh
 #
 # Settings, all optional:
-#   TENANTRY_VERSION         the Tenantry Core version to build against, from nuget.org (default: the workflow's
-#                            TENANTRY_VERSION, the release the skills target)
+#   TENANTRY_VERSION         the Tenantry Core version to build against, from nuget.org (default: the release the
+#                            skills target, in scripts/tenantry-version.txt)
 #   TENANTRY_CORE_PACKAGES   a folder of Tenantry Core packages to take Tenantry.* from instead of nuget.org, such as
 #                            an unreleased version packed from source; TENANTRY_VERSION is then read from it
 #   TENANTRY_PRO_PACKAGES    a folder of Tenantry Pro packages. Only with it are the tenantry-pro skill's blocks built,
@@ -23,7 +23,7 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 here="$repo/scripts/snippets"
 
 version_of() {
-  local nupkgs=("$1"/$2.[0-9]*.nupkg)
+  local nupkgs=("$1/$2".[0-9]*.nupkg)
   [[ -e "${nupkgs[0]}" ]] || { echo "No $2 package in $1" >&2; exit 1; }
   unzip -p "${nupkgs[0]}" '*.nuspec' | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | head -n 1
 }
@@ -33,8 +33,7 @@ pro_packages="${TENANTRY_PRO_PACKAGES:+$(cd "$TENANTRY_PRO_PACKAGES" && pwd)}"
 if [[ -n "$core_packages" ]]; then
   version="$(version_of "$core_packages" Tenantry.Core)"
 else
-  # The release the skills target, set once in the workflow.
-  version="${TENANTRY_VERSION:-$(sed -n 's/^ *TENANTRY_VERSION: *//p' "$repo/.github/workflows/validate.yml" | head -n 1)}"
+  version="${TENANTRY_VERSION:-$(tr -d '[:space:]' < "$repo/scripts/tenantry-version.txt")}"
   if [[ "${SKIP_UNPUBLISHED:-}" == 1 ]]; then
     # Skip only when nuget.org answers and does not list the version: a failed request fails the check.
     if ! published="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json)"; then

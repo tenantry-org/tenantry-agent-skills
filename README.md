@@ -72,15 +72,22 @@ For agents that read only an `AGENTS.md` (or `CLAUDE.md`), either point them at 
 
 ## Versions
 
-The skills are for Tenantry Core and Tenantry Pro 0.7 and later. They were written and checked against 0.7 before it
-was released, using packages built from the source.
+The skills are for Tenantry Core and Tenantry Pro 0.7 and later.
 
 Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.6 or earlier
 first: 0.6 has isolation gaps that 0.7 fixes, and some names the skills use do not exist in it
 ([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
-line pins `--version 0.7.0`, which makes NuGet install 0.7.0 exactly and fail, rather than install 0.6, until 0.7.0 is
-published. The skills tell the agent to stop and tell the user if it fails, and to update to the newest 0.7.x patch
-once it succeeds.
+line pins `--version 0.7.0`, which makes NuGet install the release the skills are written for rather than whatever is
+newest. Once that succeeds, the skills tell the agent to update to the newest 0.7.x patch.
+
+When Tenantry releases a newer version, a pull request here moves the skills to it. The `update-version` workflow
+compares the newest stable Tenantry.Core on nuget.org, or the version a Tenantry Pro release gives, with the release
+the skills target, in `scripts/tenantry-version.txt`. When the release is newer, it changes that file, every mention of
+the old version (which covers each pin) and each skill's `tenantry-version` to the new one, copies Tenantry Core's
+removed names into `scripts/removed-names.txt`, and runs both checks. The pull request reports their output. It
+opens as a draft when something needs rewriting by hand, such as a removed name the skills still use or, for a new
+minor version, lines that still name the old one. Tenantry Pro's removed names are in a private repository, so the
+Pro part of `scripts/removed-names.txt` is copied by hand after each Pro release.
 
 ## Checking the skills
 
@@ -96,10 +103,11 @@ It needs Node.js 20 or later and nothing else, and checks:
 - that links to tenantry.dev name a docs page that exists, and, given the docs of the release the skills target
   (`--core-docs <tenantry-core>/docs --pro-docs <tenantry-pro-docs>/docs`), that the heading they link to exists
   there;
-- that no file names an API, namespace or package Tenantry 0.7 no longer has (`scripts/removed-names.txt`, copied
-  from the Tenantry repositories' own lists);
+- that no file names an API, namespace or package Tenantry no longer has (`scripts/removed-names.txt`, copied from
+  the Tenantry repositories' own lists), and, given Tenantry Core's docs, that the list has every name in that
+  release's `eng/common/removed-names.txt`;
 - that every line that adds a Tenantry package with `dotnet add` pins `--version` to the release the skills target,
-  `TENANTRY_VERSION` in `.github/workflows/validate.yml`, which is set there and nowhere else;
+  which is set in `scripts/tenantry-version.txt` and nowhere else;
 - that no C# example registers a resolver the caller controls (header, subdomain, host, route, query string, or one
   of your own) without an access validator. A block whose own resolver checks the caller's access itself can say so
   with ```` ```csharp no-validator-needed ````; no block in the skills needs it today;
@@ -115,16 +123,22 @@ builds every C# block in the skills and AGENTS.md against the Tenantry packages,
 errors at the block's line. Tenantry's TNY1001 and TNY1002 warnings are errors there, so an example that crosses
 tenants on purpose says so with a `#pragma warning disable` and a reason. The build cannot catch a resolver without an
 access validator, since TNY2001 reports nothing once any block in the one project adds a validator; the per-block
-check in `validate.mjs` covers that. It builds against the workflow's `TENANTRY_VERSION` from nuget.org, or a folder
+check in `validate.mjs` covers that. It builds against the release the skills target from nuget.org, or a folder
 of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES`
 names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another
 library's code, or a signature shown for its shape).
 
-CI runs both on every push and pull request. Until Tenantry 0.7.0 is published, the docs headings are checked by page
-name only and the code blocks are not built in CI, as neither the 0.7 docs tags nor the packages exist yet; each
-prints a notice and starts checking on its own once they do. Before then they were run locally, against docs and
-packages built from the Tenantry repositories' master branches. `claude plugin validate .` runs Claude Code's own
-checks.
+CI runs both on every push and pull request, and each Monday. While the docs tags or packages of the release the
+skills target are not published, the docs headings are checked by page name only and the code blocks are not
+built; each check prints a notice and starts checking on its own once they are. `claude plugin validate .` runs Claude
+Code's own checks.
+
+`.github/workflows/update-version.yml` opens the pull requests described under [Versions](#versions). It runs each
+Monday, and a release workflow can start it with a `tenantry-release` repository_dispatch event whose client_payload is
+`{"package": "core", "version": "0.8.0"}`, or `"pro"` for a Pro release. A Core release that nuget.org does not list
+yet is picked up by the next weekly run. A pull request opened with the workflow's token starts no other workflow, so
+the workflow runs both checks itself. It needs the repository's Actions setting that allows GitHub Actions to create
+pull requests. Once someone pushes to the pull request's branch, later runs leave that branch alone.
 
 ## Reporting a mistake
 
