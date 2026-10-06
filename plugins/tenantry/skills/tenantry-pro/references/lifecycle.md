@@ -3,12 +3,12 @@
 ## Provisioning
 
 `ITenantProvisioner<TKey>.ProvisionAsync(tenant)` runs, in this order: `CreateDatabase` or `CreateSchema`, then
-`Migrations`, then your steps and seeders in the order added. Only registered steps run.
+`Migrations`, then your steps in the order added. Only registered steps run.
 
 ```csharp
 // Inside the app's existing AddTenantry(tenant => ...) call.
 tenant.UsePro(pro => pro
-    .AddSeeder<MyTenantSeeder>()                  // your seeder, last
+    .AddProvisioningStep<SeedTenantData>()        // your step, last
     .AddDatabaseProvisioning<AppDbContext>()      // CreateDatabase, runs first
     .AddMigrations<AppDbContext>());              // Migrations, after it
 ```
@@ -40,8 +40,9 @@ public sealed class TenantOnboarding(ITenantProvisioner<string> provisioner, IMy
 
 - A failed step is reported in the result (`Succeeded`, `Steps`, `Error`), not thrown; by default it stops the steps
   after it (`pro.ConfigureProvisioning(o => o.StopOnFailure = false)` runs them all).
-- Seeders implement `ITenantSeeder<TKey>` and other steps `ITenantProvisioningStep<TKey>`. Both are resolved from a
-  scope for the tenant and must be idempotent, as recovering from a failure means provisioning again.
+- Your steps implement `ITenantProvisioningStep<TKey>` (`ExecuteAsync(context, ct)`, with the tenant in
+  `context.Tenant`). Each is resolved from a scope for the tenant and must be idempotent, as recovering from a failure
+  means provisioning again.
 - `ProvisionAsync` throws for a reserved tenant id, a missing or invalid licence, or cancellation.
 - Protect the endpoint or command that provisions with an administrator's authorization policy.
 

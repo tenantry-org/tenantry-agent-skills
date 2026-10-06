@@ -2,9 +2,9 @@
 name: tenantry-audit-isolation
 description: Reviews a .NET app that already uses Tenantry for tenant isolation gaps and reports findings by file and line. Use when asked to audit, review or security-check a Tenantry app, or whether one tenant can see another's data.
 license: Apache-2.0
-compatibility: Tenantry 0.7 or later. Needs read access to the application's source.
+compatibility: Tenantry 0.8 or later. Needs read access to the application's source.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # Audit a Tenantry app for isolation gaps
@@ -19,8 +19,9 @@ a tenant it does not belong to, or makes tenant code run with the wrong tenant o
    every `DbContext` and its registrations, the request pipeline, hosted services and job or message handlers.
 2. Run each check in [references/checks.md](references/checks.md), in order. Each check says what to search for, what
    is a finding and how severe it is. Record evidence as `path:line` with the line's code.
-3. Build the app. Tenantry's analyzers report several of these checks as warnings or info: TNY1001 (an entity with a
-   `TenantId` that is not tenant-owned), TNY1002 (`IgnoreQueryFilters()` on a tenant-owned entity), TNY1003 (raw SQL),
+3. Build the app. Tenantry's analyzers report several of these checks as warnings or info: TNY1004 (a context with
+   tenant-owned entities registered without `UseTenantry()`), TNY1001 (an entity with a `TenantId` that is not
+   tenant-owned), TNY1002 (a query that reads a tenant-owned entity and ignores the tenant filter), TNY1003 (raw SQL),
    TNY2001 (a request resolver with no access validator), TNY3001 (`MakeCurrent` or `CreateScope` given a descriptor
    built in the call) and TNY3002 (blocking on `RunInScopeAsync`). Treat each as a lead, and look for suppressions of
    them (`#pragma warning disable TNY`, `SuppressMessage`, `.editorconfig` severities) that hide real findings.
@@ -30,9 +31,12 @@ a tenant it does not belong to, or makes tenant code run with the wrong tenant o
    another); its absence is a finding.
 6. Write the findings as described under [Writing the findings](#writing-the-findings), most severe first.
 
-A Tenantry package at 0.6 or earlier is a finding of its own (High): 0.6 has isolation gaps that 0.7 fixes
-(https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). These checks are written for 0.7 and later;
-report the version, recommend the upgrade, and run the checks anyway.
+A Tenantry package at 0.6 or earlier is a finding of its own (High): 0.6 has isolation gaps that later releases fix
+(https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). One at 0.7 is High when a request through
+an HTTP or gRPC client with `UseTenantry()` can carry a `tenantry-tenant-id` header taken from the incoming request
+(header propagation, or headers copied by hand): with no tenant current, 0.7 sends that header on, so the caller
+chooses the tenant the other service acts for. 0.8 refuses such a request. Otherwise a 0.7 package is Low. These
+checks are written for 0.8 and later: report the version, recommend the upgrade, and run the checks anyway.
 
 ## Severity
 

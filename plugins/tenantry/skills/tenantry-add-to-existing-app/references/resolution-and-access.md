@@ -100,7 +100,7 @@ files and other middleware that must not resolve a tenant go before it.
 ## Authentication settings per tenant
 
 When tenants sign in with settings of their own (an `Authority`, client id or cookie name), set them per scheme with
-`ConfigurePerTenant` from `Tenantry.Options` (`dotnet add package Tenantry.Options --version 0.7.0`), and resolve the
+`ConfigurePerTenant` from `Tenantry.Options` (`dotnet add package Tenantry.Options --version 0.8.0`), and resolve the
 tenant before authentication:
 
 ```csharp

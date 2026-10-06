@@ -2,9 +2,9 @@
 name: tenantry-database-per-tenant
 description: Gives each tenant its own database with Tenantry Core, connecting every EF Core DbContext to the current tenant's database. Use when the user wants a database or connection string per tenant in a .NET app.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # A database per tenant
@@ -17,22 +17,22 @@ The exact registration, its options and its rules are in one file,
 [references/registration.md](references/registration.md). Read it before writing the registration. (It is kept in
 one file because the registration may change in a later release.)
 
-These instructions are for Tenantry 0.7 and later. If the project references Tenantry at 0.6 or earlier
-(`dotnet list package`), upgrade every Tenantry package to 0.7 first: 0.6 has isolation gaps that 0.7 fixes, and some
-names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
+These instructions are for Tenantry 0.8 and later. If the project references Tenantry at 0.7 or earlier
+(`dotnet list package`), upgrade every Tenantry package to 0.8 first: 0.7 and earlier have isolation gaps that 0.8
+fixes. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 ## Steps
 
 1. Inspect the app as for a shared database: the target framework and EF Core version, every `DbContext` and where it
    is registered, how requests name the tenant, and raw SQL. Note which contexts hold per-tenant data and which hold
    shared data (the tenant registry, reference data): only the per-tenant ones move to a database per tenant.
-2. Install the packages with `dotnet add package <name> --version 0.7.0`: `Tenantry.EfCore`, plus `Tenantry.AspNetCore`
+2. Install the packages with `dotnet add package <name> --version 0.8.0`: `Tenantry.EfCore`, plus `Tenantry.AspNetCore`
    in a web app (`Tenantry.Core` comes with them).
 
-   `--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
-   with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
-   Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
-   and `dotnet add package <name> --version <that patch>` installs it.
+   `--version 0.8.0` makes NuGet install 0.8.0 exactly, the lowest version that satisfies it. If the command fails with
+   NU1102, stop and tell the user. Do not install an older version, and do not remove `--version`. Once it succeeds,
+   update every Tenantry package to the newest 0.8.x patch: `dotnet list package --outdated` lists it, and
+   `dotnet add package <name> --version <that patch>` installs it.
 3. Put what identifies each tenant's database on the tenant: a database name built from the id, or a connection
    string or secret name on your own descriptor type, read with `t.As<AppTenant>()`. Write the store as for a shared
    database, over the registry in the shared database

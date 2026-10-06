@@ -2,15 +2,15 @@
 
 Instructions for adding Tenantry, a multi-tenancy library for ASP.NET Core and EF Core, to a .NET application. This
 file holds the same guidance as the skills in [plugins/tenantry/skills](plugins/tenantry/skills), in one place, for
-agents that do not load skills. It is for Tenantry 0.7 and later (`Tenantry.Core`, `Tenantry.EfCore`,
-`Tenantry.AspNetCore`) and Tenantry Pro 0.7 and later.
+agents that do not load skills. It is for Tenantry 0.8 and later (`Tenantry.Core`, `Tenantry.EfCore`,
+`Tenantry.AspNetCore`) and Tenantry Pro 0.8 and later.
 
-Check the version first with `dotnet list package`. If a project references Tenantry 0.6 or earlier, upgrade every
-Tenantry package to 0.7 before anything else: 0.6 has isolation gaps that 0.7 fixes, and some names used here do not
-exist in it (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). Add packages with
-`--version 0.7.0`, which makes NuGet install 0.7.0 exactly. If the command fails with NU1102, 0.7.0 is not published
-yet: stop and tell the user; do not install 0.6 and do not remove `--version`. Once it succeeds, update every Tenantry
-package to the newest 0.7.x patch that `dotnet list package --outdated` lists.
+Check the version first with `dotnet list package`. If a project references Tenantry 0.7 or earlier, upgrade every
+Tenantry package to 0.8 before anything else: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names used
+here do not exist in them (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md). Add packages with
+`--version 0.8.0`, which makes NuGet install 0.8.0 exactly. If the command fails with NU1102, stop and tell the user;
+do not install an older version and do not remove `--version`. Once it succeeds, update every Tenantry package to the
+newest 0.8.x patch that `dotnet list package --outdated` lists.
 
 ## How Tenantry isolates data
 
@@ -61,10 +61,11 @@ package to the newest 0.7.x patch that `dotnet list package --outdated` lists.
    identifies the customer on a request today; authentication and claims; raw SQL and `IgnoreQueryFilters`; background
    work.
 2. Use the existing owner id's type as `TKey`. Install `Tenantry.AspNetCore` and `Tenantry.EfCore` with
-   `--version 0.7.0`. With `string` ids, each tenant's id must be unique under the `TenantId` column's collation
+   `--version 0.8.0`. With `string` ids, each tenant's id must be unique under the `TenantId` column's collation
    (SQL Server's and MySQL's defaults ignore case): a store keyed by the id in the same database guarantees it, and
-   `UseInMemoryStore` refuses ids that differ only in case
-   (https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation).
+   `UseInMemoryStore` refuses ids that differ only in case. On SQL Server and MySQL, warning 2007
+   (`StringTenantIdCollation`) names the tenant-owned tables where no collation is set for `TenantId`, its table or
+   the model (https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation).
 3. Write a store over the existing organisations table, or start with `UseInMemoryStore`. The registry entity must not
    implement `ITenantEntity<TKey>`:
 
@@ -215,7 +216,10 @@ and https://tenantry.dev/docs/core/authentication-per-tenant.
 ## A new app
 
 Decide the host (API, worker, or both), the key type, resolution and access validation, the store, and shared database
-or database per tenant. Then follow the steps above from step 2, with no migration backfill. A complete API and worker:
+or database per tenant. With the .NET 10 SDK, `dotnet new install Tenantry.Templates::0.8.0` and then
+`dotnet new tenantry-api` or `dotnet new tenantry-worker` give a starting project (`net10.0`, `string` ids, an
+in-memory store, SQLite) to change to those answers. Then follow the steps above from step 2, with no migration
+backfill. A complete API and worker:
 [plugins/tenantry/skills/tenantry-new-app](plugins/tenantry/skills/tenantry-new-app/SKILL.md).
 
 ## Workers, jobs, console and desktop apps
@@ -280,7 +284,7 @@ full list: [checks.md](plugins/tenantry/skills/tenantry-audit-isolation/referenc
 
 A paid package from a private feed, with a licence key read from `Tenantry:License`. It adds, inside
 `tenant.UsePro(pro => ...)`: `UseSchemaPerTenant` (SQL Server, PostgreSQL), `UseMixedMode`, provisioning and
-offboarding (`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddSeeder`,
+offboarding (`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddProvisioningStep`,
 `ITenantProvisioner<TKey>`, `ITenantDeprovisioner<TKey>`), `app.RunTenantMigrationsIfRequestedAsync(args)` for
 `dotnet run -- migrate-tenants`, `AddHangfirePropagation`, `AddQuartzPropagation`, `AddMassTransitPropagation`,
 `AddRebusPropagation`, `AddAuditLogging` and `CacheConnectionStrings`. Installation and each feature:

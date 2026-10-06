@@ -14,7 +14,7 @@
     <!-- Only errors fail the check: a block may leave a variable unused or a method without an await. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- Except Tenantry's analyzer warnings: no example may show a tenant mistake without saying it is meant. -->
-    <WarningsAsErrors>$(WarningsAsErrors);TNY1001;TNY1002;TNY2001</WarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);TNY1001;TNY1002;TNY1004;TNY2001</WarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
     <IncludePro Condition="'$(IncludePro)' == ''">false</IncludePro>
   </PropertyGroup>

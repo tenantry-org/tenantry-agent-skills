@@ -8,8 +8,8 @@ id), and the worker runs it with `ITenantScopeFactory<TKey>.RunInScopeAsync`.
 ```bash
 dotnet new worker -o src/MyWorker
 cd src/MyWorker
-dotnet add package Tenantry.Core --version 0.7.0
-dotnet add package Tenantry.EfCore --version 0.7.0
+dotnet add package Tenantry.Core --version 0.8.0
+dotnet add package Tenantry.EfCore --version 0.8.0
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite        # or your provider
 ```
 

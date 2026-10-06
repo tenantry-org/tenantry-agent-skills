@@ -2,9 +2,9 @@
 name: tenantry-non-http
 description: Runs code as a Tenantry tenant outside HTTP requests, in workers, BackgroundService and hosted services, queue consumers, scheduled jobs, console tools and desktop apps. Use when Tenantry work has no request, or a job or worker loses its tenant.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10. Tenantry 0.7 or later.
+compatibility: .NET 8, 9 or 10. Tenantry 0.8 or later.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # Tenantry outside HTTP requests
@@ -13,15 +13,15 @@ In a web request, `app.UseTenantry()` makes the tenant current. Anywhere else, y
 work. Until it does, no tenant is current: tenant-owned queries return no rows and tenant-owned saves throw
 `TenantNotResolvedException`. That is Tenantry failing closed, not a bug to work around.
 
-These instructions are for Tenantry 0.7 and later. If the project references Tenantry at 0.6 or earlier
-(`dotnet list package`), upgrade every Tenantry package to 0.7 first: 0.6 has isolation gaps that 0.7 fixes, and some
-names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
+These instructions are for Tenantry 0.8 and later. If the project references Tenantry at 0.7 or earlier
+(`dotnet list package`), upgrade every Tenantry package to 0.8 first: 0.7 and earlier have isolation gaps that 0.8
+fixes. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 ## 1. Register Tenantry without ASP.NET Core
 
 ```bash
-dotnet add package Tenantry.Core --version 0.7.0
-dotnet add package Tenantry.EfCore --version 0.7.0     # when the host uses EF Core
+dotnet add package Tenantry.Core --version 0.8.0
+dotnet add package Tenantry.EfCore --version 0.8.0     # when the host uses EF Core
 ```
 
 ```csharp
@@ -34,10 +34,10 @@ builder.Services.AddDbContext<AppDbContext>(options => options
     .UseTenantry());
 ```
 
-`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
-with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
-Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
-and `dotnet add package <name> --version <that patch>` installs it.
+`--version 0.8.0` makes NuGet install 0.8.0 exactly, the lowest version that satisfies it. If the command fails with
+NU1102, stop and tell the user. Do not install an older version, and do not remove `--version`. Once it succeeds, update
+every Tenantry package to the newest 0.8.x patch: `dotnet list package --outdated` lists it, and
+`dotnet add package <name> --version <that patch>` installs it.
 
 A host that serves web requests too keeps its one `AddTenantry` call; the same registration serves both. Register a
 store when any code looks tenants up by id: `ITenantLookup<TKey>` and `RunInScopeAsync` throw

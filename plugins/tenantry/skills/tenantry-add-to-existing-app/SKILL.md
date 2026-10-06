@@ -2,9 +2,9 @@
 name: tenantry-add-to-existing-app
 description: Adds Tenantry multi-tenancy to an existing ASP.NET Core app that uses EF Core, isolating each tenant's rows in one shared database by a TenantId column. Use when making an existing .NET web app or API multi-tenant, or scoping its EF Core data per customer, organisation or account.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # Add Tenantry to an existing ASP.NET Core and EF Core app
@@ -17,9 +17,9 @@ unmarked. On each request, `app.UseTenantry()` resolves the tenant, checks the c
 Work through the steps in order. Do not skip the inspection or the tests: they are how you and the user know the
 change is complete. Explain each choice to the user in plain words before you make it.
 
-These instructions are for Tenantry 0.7 and later. If the project already references Tenantry (`dotnet list package`)
-at 0.6 or earlier, upgrade every Tenantry package to 0.7 before anything else: 0.6 has isolation gaps that 0.7 fixes,
-and some names used here do not exist in it. What changed:
+These instructions are for Tenantry 0.8 and later. If the project already references Tenantry (`dotnet list package`)
+at 0.7 or earlier, upgrade every Tenantry package to 0.8 before anything else: 0.7 and earlier have isolation gaps that
+0.8 fixes, and some names used here do not exist in them. What changed:
 https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 ## 1. Inspect the app before changing anything
@@ -49,18 +49,22 @@ Use the type of the existing owner id as `TKey` (`Guid`, `int`, `long` or `strin
 With `string` ids, the database compares `TenantId` under the column's collation, and SQL Server's and MySQL's
 defaults ignore case, so `acme` and `ACME` would be one tenant to the database and two to Tenantry. Each tenant's id
 must be unique under that collation: a store keyed by the id, in the same database, guarantees it, and
-`UseInMemoryStore` refuses two ids that differ only in case. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
+`UseInMemoryStore` refuses two ids that differ only in case. On SQL Server and MySQL, Tenantry logs warning 2007
+(`StringTenantIdCollation`) as it builds the model, naming the tenant-owned tables where no collation is set for
+`TenantId`, its table or the model. Once the ids are known to stay distinct under the collation,
+`tenant.IgnoreWarnings(TenantryWarnings.StringTenantIdCollation)` turns it off.
+Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
 
 ```bash
 # In the web project
-dotnet add package Tenantry.AspNetCore --version 0.7.0
-dotnet add package Tenantry.EfCore --version 0.7.0
+dotnet add package Tenantry.AspNetCore --version 0.8.0
+dotnet add package Tenantry.EfCore --version 0.8.0
 ```
 
-`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
-with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
-Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
-and `dotnet add package <name> --version <that patch>` installs it.
+`--version 0.8.0` makes NuGet install 0.8.0 exactly, the lowest version that satisfies it. If the command fails with
+NU1102, stop and tell the user. Do not install an older version, and do not remove `--version`. Once it succeeds, update
+every Tenantry package to the newest 0.8.x patch: `dotnet list package --outdated` lists it, and
+`dotnet add package <name> --version <that patch>` installs it.
 
 A separate project that holds only entities needs `Tenantry.Core` (for `ITenantEntity<TKey>`); one that calls
 `UseTenantry()` on a context's options needs `Tenantry.EfCore`.

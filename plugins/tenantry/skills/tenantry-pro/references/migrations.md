@@ -58,7 +58,10 @@ deployments and development. It does not create a missing database unless
 The runner migrates every tenant the store's `GetAllTenantsAsync` returns, suspended ones included. A store that hides
 suspended tenants leaves them behind.
 
-To migrate with other credentials than the application's, set `o.CreateContext` to build the context yourself; with a
-schema per tenant, build it with `UseApplicationServiceProvider(sp)` and `UseTenantry()` so it gets the schema.
+To migrate with other credentials than the application's, call `pro.UseAdminContext<AppDbContext>(sp => …)` once:
+provisioning, migrations, offboarding's drops and the migration health check all use the context it builds. The
+delegate must return a new context each time. With a schema per tenant, build it with
+`UseApplicationServiceProvider(sp)` and `UseTenantry()` so it gets the schema. In mixed mode it is called for every
+tenant, so it must also connect `Shared` tenants to the shared database.
 
 More: https://tenantry.dev/docs/pro/migration-orchestration

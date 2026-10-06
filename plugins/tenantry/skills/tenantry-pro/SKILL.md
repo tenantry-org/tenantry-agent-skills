@@ -2,9 +2,9 @@
 name: tenantry-pro
 description: Sets up Tenantry Pro, the paid add-on to Tenantry Core. Use only when the project references Tenantry.Pro, or the user asks about Tenantry Pro, a schema per tenant, mixed isolation (some tenants on their own database or schema, others shared) or a Tenantry licence key.
 license: Apache-2.0
-compatibility: Tenantry Pro 0.7 with Tenantry Core 0.7, .NET 8, 9 or 10. Needs a Tenantry Pro subscription.
+compatibility: Tenantry Pro 0.8 with Tenantry Core 0.8, .NET 8, 9 or 10. Needs a Tenantry Pro subscription.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # Tenantry Pro
@@ -33,10 +33,10 @@ Pro runs inside the Core registration: keep `AddTenantry`, the resolvers and the
 
 ## Install
 
-Installing Pro needs the subscription's feed credentials and licence key: follow
+Installing Pro needs a feed token and the licence key, both from the subscription's Pro access page: follow
 [references/installation.md](references/installation.md). In short: a committed `nuget.config` that maps
-`Tenantry.Pro` and `Tenantry.Pro.*` to the private GitHub Packages feed, two environment variables for the feed
-credentials (`TENANTRY_GITHUB_USERNAME`, `TENANTRY_GITHUB_PAT`), and the licence key in the `Tenantry:License`
+`Tenantry.Pro` and `Tenantry.Pro.*` to the package feed at tenantry.dev, the feed token in the `TENANTRY_FEED_TOKEN`
+environment variable (a secret in CI, a build secret in Docker), and the licence key in the `Tenantry:License`
 setting, kept out of source control. Never write the token or the key into a committed file.
 
 ## Steps for any Pro feature

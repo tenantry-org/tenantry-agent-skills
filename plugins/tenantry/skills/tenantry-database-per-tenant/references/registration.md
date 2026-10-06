@@ -1,7 +1,7 @@
 # Registration: `UseConnectionStrings` and `AddDbContextPerTenantDatabase`
 
 This file holds every registration detail of a database per tenant, so it is the one place to update if the
-registration changes. It describes Tenantry 0.7.
+registration changes. It describes Tenantry 0.8.
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
@@ -40,8 +40,8 @@ tenant.UseConnectionStrings(sp => new VaultConnectionStrings(sp.GetRequiredServi
   connection, so only asynchronous EF Core calls (`ToListAsync`, `SaveChangesAsync`) work on it; a synchronous one
   throws `InvalidOperationException`.
 - A provider of your own implements `ITenantConnectionStringProvider<TKey>` and returns `false` from
-  `CanGetSynchronously` if it can only read asynchronously. It must be a singleton: the first context created throws
-  when it is scoped or transient. Create a scope inside it for any scoped service it needs.
+  `CanGetSynchronously` if it can only read asynchronously. It must be a singleton: the host refuses to start when it
+  is scoped or transient. Create a scope inside it for any scoped service it needs.
 - To cache or log, wrap whichever provider is registered:
   `tenant.DecorateConnectionStrings((sp, inner) => new LoggingConnectionStrings(inner))`.
 

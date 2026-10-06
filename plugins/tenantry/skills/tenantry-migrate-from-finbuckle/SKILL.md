@@ -2,9 +2,9 @@
 name: tenantry-migrate-from-finbuckle
 description: Moves an ASP.NET Core and EF Core app from Finbuckle.MultiTenant to Tenantry, keeping its string tenant ids and TenantId columns. Use when a project references Finbuckle.MultiTenant packages and the user wants Tenantry instead.
 license: Apache-2.0
-compatibility: Written from Tenantry's guide for Finbuckle.MultiTenant 10.1.4 and Tenantry 0.7.
+compatibility: Written from Tenantry's guide for Finbuckle.MultiTenant 10.1.4 and Tenantry 0.8.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # Migrate from Finbuckle.MultiTenant to Tenantry
@@ -13,8 +13,8 @@ Work through the steps in order, then the checklist. Most of the work is mechani
 are the tenant store, the indexes Finbuckle adjusted, and code that relied on Finbuckle's mismatch and not-set modes.
 How each Finbuckle type and method maps is in [references/concept-map.md](references/concept-map.md).
 
-These instructions are for Tenantry 0.7 and later; do not move to 0.6, which has isolation gaps that 0.7 fixes
-(https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md).
+These instructions are for Tenantry 0.8 and later; do not move to 0.7 or earlier, which have isolation gaps that 0.8
+fixes (https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md).
 
 ## 0. Inventory
 
@@ -29,14 +29,14 @@ checklist at the end refers to it.
 ```bash
 dotnet remove package Finbuckle.MultiTenant.AspNetCore
 dotnet remove package Finbuckle.MultiTenant.EntityFrameworkCore
-dotnet add package Tenantry.AspNetCore --version 0.7.0
-dotnet add package Tenantry.EfCore --version 0.7.0
+dotnet add package Tenantry.AspNetCore --version 0.8.0
+dotnet add package Tenantry.EfCore --version 0.8.0
 ```
 
-`--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
-with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
-Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
-and `dotnet add package <name> --version <that patch>` installs it.
+`--version 0.8.0` makes NuGet install 0.8.0 exactly, the lowest version that satisfies it. If the command fails with
+NU1102, stop and tell the user. Do not install an older version, and do not remove `--version`. Once it succeeds, update
+every Tenantry package to the newest 0.8.x patch: `dotnet list package --outdated` lists it, and
+`dotnet add package <name> --version <that patch>` installs it.
 
 Add `Tenantry.Options` for per-tenant options. Remove `Finbuckle.MultiTenant.Identity.EntityFrameworkCore` too if it is
 used, and follow https://tenantry.dev/docs/core/aspnetcore-identity.
@@ -49,8 +49,13 @@ as they are. Changing the key type is a separate change with a data migration; d
 With `string` ids, the database compares `TenantId` under the column's collation, and SQL Server's and MySQL's
 defaults ignore case, so `acme` and `ACME` would be one tenant to the database and two to Tenantry. Each tenant's id
 must be unique under that collation: a store keyed by the id, in the same database, guarantees it, and
-`UseInMemoryStore` refuses two ids that differ only in case. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation Finbuckle's EF Core store keys its table by the id, so
+`UseInMemoryStore` refuses two ids that differ only in case. Finbuckle's EF Core store keys its table by the id, so
 it already guarantees this; a configuration or in-memory store of ids that differ only in case must be fixed first.
+
+On SQL Server and MySQL, Tenantry logs warning 2007 (`StringTenantIdCollation`) as it builds the model, naming the
+tenant-owned tables where no collation is set for `TenantId`, its table or the model. Once the ids are known to stay
+distinct under the collation, `tenant.IgnoreWarnings(TenantryWarnings.StringTenantIdCollation)` turns it off.
+Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
 
 ## 3. Move the tenant type and the store
 

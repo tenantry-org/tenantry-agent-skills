@@ -6,7 +6,10 @@ otherwise. `grep -rn --include='*.cs'` is shown; use whatever search tool you ha
 ## 1. Every context with tenant-owned entities calls `UseTenantry()`
 
 Search: `AddDbContext`, `AddDbContextPool`, `AddDbContextFactory`, `AddPooledDbContextFactory`, `OnConfiguring`,
-`new DbContextOptionsBuilder`, `AddDbContextPerTenantDatabase`.
+`new DbContextOptionsBuilder`, `AddDbContextPerTenantDatabase`. The build reports an `AddDbContext`,
+`AddDbContextPool`, `AddDbContextFactory` or `AddPooledDbContextFactory` without `UseTenantry()` as TNY1004, but not
+one whose options are handed to other code or whose context has an `OnConfiguring`, nor, on EF Core 9 and later, one
+for a context declared in another project. Search anyway.
 
 - High: a registration, factory or `OnConfiguring` for a context that has tenant-owned entity types, whose options do
   not call `.UseTenantry()`. Queries are unfiltered and saves unchecked.
@@ -91,8 +94,9 @@ Read `Program.cs` (or `Startup.Configure`).
 With `UseTenantResolution()` (authentication settings per tenant, https://tenantry.dev/docs/core/authentication-per-tenant):
 
 - High: `UseAuthorization()`, or middleware of your own that calls `IAuthorizationService`, between
-  `UseTenantResolution()` and `UseTenantry()`: authorization sees a tenant the validators have not checked. (Tenantry
-  0.7 refuses to start with `UseAuthorization()` there, and logs event 1013 for authorization added another way.)
+  `UseTenantResolution()` and `UseTenantry()`: authorization sees a tenant the validators have not checked.
+  (Tenantry 0.7 and later refuse to start with `UseAuthorization()` there, and log event 1013 for authorization added
+  another way.)
 - High: auth-time code that trusts the current tenant: `OnTokenValidated`, `OnValidatePrincipal`,
   `OnRefreshingPrincipal` or an `IClaimsTransformation` that grants claims, roles or permissions from the current
   tenant, writes as it, or renews or reissues a cookie with claims taken from it. The tenant is not yet checked then.
@@ -135,7 +139,11 @@ Search: `ConfigureEfCoreIsolation`, `OnMissingTenant`, `MissingTenantBehavior`.
 ## 9. String tenant ids and the collation
 
 With `string` keys, read the `TenantId` columns' collation (the migrations, `UseCollation`, the database's default)
-and how the store lists tenants. Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
+and how the store lists tenants. On SQL Server and MySQL, warning 2007 (`StringTenantIdCollation`) in the app's logs
+names the tenant-owned tables where no collation is set for `TenantId`, its table or the model. Where the app turns it
+off with `IgnoreWarnings(TenantryWarnings.StringTenantIdCollation)`, check that the store keeps the ids distinct
+under the collation.
+Details: https://tenantry.dev/docs/core/efcore-integration#string-tenant-ids-and-the-databases-collation
 
 - High: two tenant ids the collation takes for one another (`acme` and `ACME` under SQL Server's or MySQL's default,
   case-insensitive collation; accents under MySQL's; trailing spaces on SQL Server under any collation). Each tenant's

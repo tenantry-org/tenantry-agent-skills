@@ -23,7 +23,7 @@ dotnet new xunit -o tests/MyApp.Tests
 dotnet sln add tests/MyApp.Tests          # if the repository has a solution file
 dotnet add tests/MyApp.Tests reference src/MyApp
 dotnet add tests/MyApp.Tests package Microsoft.EntityFrameworkCore.Sqlite --version <the app's EF Core version>
-dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.7.0
+dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.8.0
 ```
 
 Use the same EF Core version as the app, or the restore fails with a downgrade error. If the types the test needs are

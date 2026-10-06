@@ -9,8 +9,8 @@ user's own.
 ```bash
 dotnet new webapi -o src/MyApp
 cd src/MyApp
-dotnet add package Tenantry.AspNetCore --version 0.7.0
-dotnet add package Tenantry.EfCore --version 0.7.0
+dotnet add package Tenantry.AspNetCore --version 0.8.0
+dotnet add package Tenantry.EfCore --version 0.8.0
 dotnet add package Microsoft.EntityFrameworkCore.Sqlite        # or SqlServer, Npgsql
 dotnet add package Microsoft.EntityFrameworkCore.Design        # for dotnet ef
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
@@ -126,7 +126,7 @@ tenant entity must not implement `ITenantEntity<TKey>`. See https://tenantry.dev
 dotnet new xunit -o tests/MyApp.Tests
 dotnet add tests/MyApp.Tests reference src/MyApp
 dotnet add tests/MyApp.Tests package Microsoft.EntityFrameworkCore.Sqlite --version <the app's EF Core version>
-dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.7.0
+dotnet add tests/MyApp.Tests package Tenantry.EfCore --version 0.8.0
 ```
 
 ```csharp

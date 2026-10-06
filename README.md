@@ -72,13 +72,13 @@ For agents that read only an `AGENTS.md` (or `CLAUDE.md`), either point them at 
 
 ## Versions
 
-The skills are for Tenantry Core and Tenantry Pro 0.7 and later.
+The skills are for Tenantry Core and Tenantry Pro 0.8 and later.
 
-Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.6 or earlier
-first: 0.6 has isolation gaps that 0.7 fixes, and some names the skills use do not exist in it
+Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.7 or earlier
+first: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names the skills use do not exist in them
 ([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
-line pins `--version 0.7.0`, which makes NuGet install the release the skills are written for rather than whatever is
-newest. Once that succeeds, the skills tell the agent to update to the newest 0.7.x patch.
+line pins `--version 0.8.0`, which makes NuGet install the release the skills are written for rather than whatever is
+newest. Once that succeeds, the skills tell the agent to update to the newest 0.8.x patch.
 
 When Tenantry releases a newer version, a pull request here moves the skills to it. The `update-version` workflow
 compares the newest stable Tenantry.Core on nuget.org, or the version a Tenantry Pro release gives, with the release
@@ -120,13 +120,13 @@ scripts/check-snippets.sh
 ```
 
 builds every C# block in the skills and AGENTS.md against the Tenantry packages, with the .NET 10 SDK, and reports
-errors at the block's line. Tenantry's TNY1001 and TNY1002 warnings are errors there, so an example that crosses
-tenants on purpose says so with a `#pragma warning disable` and a reason. The build cannot catch a resolver without an
-access validator, since TNY2001 reports nothing once any block in the one project adds a validator; the per-block
-check in `validate.mjs` covers that. It builds against the release the skills target from nuget.org, or a folder
-of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when `TENANTRY_PRO_PACKAGES`
-names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile` is skipped (another
-library's code, or a signature shown for its shape).
+errors at the block's line. Tenantry's TNY1001, TNY1002 and TNY1004 warnings are errors there, so an example that
+crosses tenants on purpose says so with a `#pragma warning disable` and a reason. The build cannot catch a resolver
+without an access validator, since TNY2001 reports nothing once any block in the one project adds a validator; the
+per-block check in `validate.mjs` covers that. It builds against the release the skills target from nuget.org, or a
+folder of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when
+`TENANTRY_PRO_PACKAGES` names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile`
+is skipped (another library's code, or a signature shown for its shape).
 
 CI runs both on every push and pull request, and each Monday. While the docs tags or packages of the release the
 skills target are not published, the docs headings are checked by page name only and the code blocks are not
@@ -135,7 +135,7 @@ Code's own checks.
 
 `.github/workflows/update-version.yml` opens the pull requests described under [Versions](#versions). It runs each
 Monday, and a release workflow can start it with a `tenantry-release` repository_dispatch event whose client_payload is
-`{"package": "core", "version": "0.8.0"}`, or `"pro"` for a Pro release. A Core release that nuget.org does not list
+`{"package": "core", "version": "0.9.0"}`, or `"pro"` for a Pro release. A Core release that nuget.org does not list
 yet is picked up by the next weekly run. A pull request opened with the workflow's token starts no other workflow, so
 the workflow runs both checks itself. It needs the repository's Actions setting that allows GitHub Actions to create
 pull requests. Once someone pushes to the pull request's branch, later runs leave that branch alone.

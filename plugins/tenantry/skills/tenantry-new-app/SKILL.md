@@ -2,16 +2,16 @@
 name: tenantry-new-app
 description: Creates a new multi-tenant ASP.NET Core API or .NET worker with Tenantry and EF Core from the start. Use when starting a new SaaS backend or tenant-aware .NET service, or asked for a Tenantry starter.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.7 or later.
+compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
-  tenantry-version: "0.7"
+  tenantry-version: "0.8"
 ---
 
 # A new app with Tenantry
 
-These instructions are for Tenantry 0.7 and later. After adding the packages, check with `dotnet list package`
-that they are 0.7 or later, never 0.6: 0.6 has isolation gaps that 0.7 fixes, and some
-names used here do not exist in it. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
+These instructions are for Tenantry 0.8 and later. After adding the packages, check with `dotnet list package`
+that they are 0.8 or later, never 0.7 or earlier: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names
+used here do not exist in them. What changed: https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md
 
 Decide these with the user before writing code, and keep the answers in the README you write for the app:
 
@@ -23,22 +23,38 @@ Decide these with the user before writing code, and keep the answers in the READ
 
 ## Steps
 
-1. Create the project and add the packages:
+1. Create the project. With the .NET 10 SDK, start from one of Tenantry's templates:
+
+   ```bash
+   dotnet new install Tenantry.Templates::0.8.0
+   dotnet new tenantry-api -n MyApp -o src/MyApp      # or: dotnet new tenantry-worker -n MyApp -o src/MyApp
+   ```
+
+   `tenantry-api` is an ASP.NET Core API with EF Core: callers authenticate with a JWT bearer token and name the tenant
+   in the `X-Tenant-Id` header, which Tenantry checks against the token's `tenant` claims. `tenantry-worker` is a worker
+   service with EF Core that runs each message as the tenant it names, with `RunInScopeAsync`. Both use `string` tenant
+   ids, an in-memory store and SQLite, create the schema at startup and reference the Tenantry packages of the
+   templates' version. Steps 2 to 5 then change what the template wrote to the answers above: the key type, the store,
+   the provider, and a first migration in place of `EnsureCreatedAsync`. The template has no test project, so step 6
+   still applies.
+
+   The projects target `net10.0`. For .NET 8 or 9, or without the .NET 10 SDK, create the project and add the
+   packages by hand:
 
    ```bash
    dotnet new webapi -o src/MyApp          # or: dotnet new worker -o src/MyApp
    cd src/MyApp
-   dotnet add package Tenantry.AspNetCore --version 0.7.0  # API only
-   dotnet add package Tenantry.EfCore --version 0.7.0
+   dotnet add package Tenantry.AspNetCore --version 0.8.0  # API only
+   dotnet add package Tenantry.EfCore --version 0.8.0
    dotnet add package Microsoft.EntityFrameworkCore.SqlServer   # or your provider
    ```
 
    A worker references `Tenantry.Core` and `Tenantry.EfCore` and no ASP.NET Core package.
 
-   `--version 0.7.0` makes NuGet install 0.7.0 exactly, the lowest version that satisfies it. If the command fails
-   with NU1102, 0.7.0 is not published yet: stop and tell the user. Do not install 0.6, and do not remove `--version`.
-   Once it succeeds, update every Tenantry package to the newest 0.7.x patch: `dotnet list package --outdated` lists it,
-   and `dotnet add package <name> --version <that patch>` installs it.
+   `::0.8.0` and `--version 0.8.0` make NuGet install 0.8.0 exactly. If either command cannot find 0.8.0
+   (`dotnet add package` fails with NU1102), stop and tell the user. Do not install an older version, and do not remove
+   the version. Once it succeeds, update every Tenantry package to the newest 0.8.x patch:
+   `dotnet list package --outdated` lists it, and `dotnet add package <name> --version <that patch>` installs it.
 
 2. Write the entities. Tenant-owned ones derive from `TenantEntity<TKey>` or implement `ITenantEntity<TKey>`; shared
    ones (reference data, the tenant registry) implement nothing. Lead composite indexes with `TenantId`, and make

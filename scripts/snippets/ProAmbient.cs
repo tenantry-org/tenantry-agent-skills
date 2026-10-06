@@ -39,9 +39,10 @@ public interface IMyTenantRepository
     Task ActivateAsync(string tenantId, CancellationToken ct);
 }
 
-public sealed class MyTenantSeeder : ITenantSeeder<string>
+public sealed class SeedTenantData : ITenantProvisioningStep<string>
 {
-    public Task SeedAsync(ITenantDescriptor<string> tenant, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task ExecuteAsync(TenantProvisioningContext<string> context, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }
 
 public sealed class ExportTenantData : ITenantDeprovisioningStep<string>

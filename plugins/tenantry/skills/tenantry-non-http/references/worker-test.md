@@ -13,7 +13,7 @@ The examples test a handler class that the worker calls for each message. If the
 dotnet new xunit -o tests/MyWorker.Tests
 dotnet add tests/MyWorker.Tests reference src/MyWorker
 dotnet add tests/MyWorker.Tests package Microsoft.EntityFrameworkCore.Sqlite --version <the app's EF Core version>
-dotnet add tests/MyWorker.Tests package Tenantry.EfCore --version 0.7.0
+dotnet add tests/MyWorker.Tests package Tenantry.EfCore --version 0.8.0
 ```
 
 ## The test
