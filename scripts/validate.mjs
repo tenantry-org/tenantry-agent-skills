@@ -423,10 +423,11 @@ function codeBlocks(text) {
 }
 
 // The release the skills target, set once, in scripts/tenantry-version.txt. Every dotnet add of a Tenantry package
-// pins exactly that version.
+// pins exactly that version. It is a minor's X.Y.0, since the pins name Core and Pro with one version and a patch may
+// exist for only one of them.
 const versionFile = join(root, 'scripts', 'tenantry-version.txt');
 const targetVersion = readFileSync(versionFile, 'utf8').trim();
-if (!/^\d+\.\d+\.\d+$/.test(targetVersion)) error(versionFile, `holds "${targetVersion}", not a version X.Y.Z`);
+if (!/^\d+\.\d+\.0$/.test(targetVersion)) error(versionFile, `holds "${targetVersion}", not a minor release X.Y.0`);
 
 const docsLinks = new Set();
 
