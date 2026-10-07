@@ -121,8 +121,8 @@ jobs:
     env:
       TENANTRY_FEED_TOKEN: ${{ secrets.TENANTRY_FEED_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - run: dotnet restore --locked-mode
@@ -138,13 +138,15 @@ the source's key has no hyphen: a shell cannot export a variable whose name has 
 
 ## Docker builds
 
-Pass the token as a build secret, not a build argument, which the image's history keeps:
+Pass the token as a build secret, not a build argument, which the image's history keeps. Copy the files restore reads
+(`nuget.config`, any `Directory.Build.props` and `Directory.Packages.props`, the project and its lock file) before the
+rest of the source, so Docker reuses the restore until one of them changes:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY nuget.config ./
+COPY nuget.config Directory.*.props ./
 COPY src/MyApp/MyApp.csproj src/MyApp/packages.lock.json src/MyApp/
 RUN --mount=type=secret,id=tenantry_feed_token,env=TENANTRY_FEED_TOKEN \
     dotnet restore src/MyApp --locked-mode
