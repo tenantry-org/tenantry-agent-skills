@@ -80,14 +80,16 @@ first: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names the sk
 line pins `--version 0.8.0`, which makes NuGet install the release the skills are written for rather than whatever is
 newest. Once that succeeds, the skills tell the agent to update to the newest 0.8.x patch.
 
-When Tenantry releases a newer version, a pull request here moves the skills to it. The `update-version` workflow
-compares the newest stable Tenantry.Core on nuget.org, or the version a Tenantry Pro release gives, with the release
-the skills target, in `scripts/tenantry-version.txt`. When the release is newer, it changes that file, every mention of
-the old version (which covers each pin) and each skill's `tenantry-version` to the new one, copies Tenantry Core's
-removed names into `scripts/removed-names.txt`, and runs both checks. The pull request reports their output. It
-opens as a draft when something needs rewriting by hand, such as a removed name the skills still use or, for a new
-minor version, lines that still name the old one. Tenantry Pro's removed names are in a private repository, so the
-Pro part of `scripts/removed-names.txt` is copied by hand after each Pro release.
+When Tenantry releases a new minor version, a pull request here moves the skills to its X.Y.0, which both Tenantry
+Core and Tenantry Pro publish. A patch needs no change, since the skills already tell the agent to update to the
+newest patch. The `update-version` workflow takes the minor version of the newest stable Tenantry.Core on nuget.org,
+or of the version a Tenantry Pro release gives, and compares its X.Y.0 with the release the skills target, in
+`scripts/tenantry-version.txt`. When it is newer, the workflow changes that file, every mention of the old version
+(which covers each pin) and each skill's `tenantry-version` to the new one, copies Tenantry Core's removed names into
+`scripts/removed-names.txt`, and runs both checks. The pull request reports their output. It opens as a draft when
+something needs rewriting by hand, such as a removed name the skills still use or lines that still name the old minor
+version. Tenantry Pro's removed names are in a private repository, so the Pro part of `scripts/removed-names.txt` is
+copied by hand after each Pro release.
 
 ## Checking the skills
 
@@ -107,7 +109,7 @@ It needs Node.js 20 or later and nothing else, and checks:
   the Tenantry repositories' own lists), and, given Tenantry Core's docs, that the list has every name in that
   release's `eng/common/removed-names.txt`;
 - that every line that adds a Tenantry package with `dotnet add` pins `--version` to the release the skills target,
-  which is set in `scripts/tenantry-version.txt` and nowhere else;
+  an X.Y.0 set in `scripts/tenantry-version.txt` and nowhere else;
 - that no C# example registers a resolver the caller controls (header, subdomain, host, route, query string, or one
   of your own) without an access validator. A block whose own resolver checks the caller's access itself can say so
   with ```` ```csharp no-validator-needed ````; no block in the skills needs it today;
@@ -128,10 +130,10 @@ folder of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks 
 `TENANTRY_PRO_PACKAGES` names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile`
 is skipped (another library's code, or a signature shown for its shape).
 
-CI runs both on every push and pull request, and each Monday. While the docs tags or packages of the release the
-skills target are not published, the docs headings are checked by page name only and the code blocks are not
-built; each check prints a notice and starts checking on its own once they are. `claude plugin validate .` runs Claude
-Code's own checks.
+CI runs both on every push and pull request, and each Monday, along with `shellcheck -S warning` on `scripts/*.sh`.
+While the docs tags or packages of the release the skills target are not published, the docs headings are checked by
+page name only and the code blocks are not built; each check prints a notice and starts checking on its own once they
+are. `claude plugin validate .` runs Claude Code's own checks.
 
 `.github/workflows/update-version.yml` opens the pull requests described under [Versions](#versions). It runs each
 Monday, and a release workflow can start it with a `tenantry-release` repository_dispatch event whose client_payload is
