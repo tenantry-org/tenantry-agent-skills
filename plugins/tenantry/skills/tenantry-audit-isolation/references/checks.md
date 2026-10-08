@@ -69,9 +69,11 @@ Read the `AddTenantry` call.
   whose value the caller controls, with no `ValidateTenantAccessByClaim`, `ValidateTenantAccess(...)` or
   `ValidateTenantAccess<T>()`. Any caller can choose any tenant.
 - High: `ResolveFromQueryString` outside development.
-- High: `ResolveFromClaim` before a header resolver when tokens can lack the claim and nothing validates the header's
-  tenant, so anonymous callers name a tenant by header.
-- Medium: `ResolveFromClaim` with tokens that list several tenants: it takes the first claim only.
+- High: `ResolveFromClaim` before a header resolver when tokens can lack the claim or carry it more than once, and
+  nothing validates the header's tenant: such a token resolves no tenant from the claim, so the caller names one by
+  header.
+- Medium: `ResolveFromClaim` alone with tokens that list several tenants: those callers get no tenant. Use
+  `ResolveFromHeader` with `ValidateTenantAccessByClaim` instead.
 - Medium: an access validator that compares a claim with a slug or name rather than the tenant id, or uses
   `HasClaim` on a claim that holds a JSON array.
 - High: `ResolveFromPropagationHeader` with an `isTrustedCaller` check that accepts callers outside your services.

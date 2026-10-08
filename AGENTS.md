@@ -286,9 +286,10 @@ and a missing isolation test. The full list:
 
 A paid package from a private feed, with a licence key read from `Tenantry:License`. It adds, inside
 `tenant.UsePro(pro => ...)`: `UseSchemaPerTenant` (SQL Server, PostgreSQL), `UseMixedMode` (with
-`GuardSharedTenants` when no other `Tenantry.Pro.EfCore` feature is added), provisioning and offboarding
-(`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`, `AddProvisioningStep`,
-`ITenantProvisioner<TKey>`, whose `ProvisionAsync` takes the call that activates the tenant,
+`GuardSharedTenants` unless the app adds `UseSchemaPerTenant`, `AddMigrations`, `AddAuditLogging` or one of
+Tenantry.Pro.EfCore's provisioning and offboarding steps; the health checks and `UseAdminContext` do not count),
+provisioning and offboarding (`AddDatabaseProvisioning`, `AddSchemaProvisioning`, `AddMigrations`,
+`AddProvisioningStep`, `ITenantProvisioner<TKey>`, whose `ProvisionAsync` takes the call that activates the tenant,
 `ITenantDeprovisioner<TKey>`), `app.RunTenantMigrationsIfRequestedAsync(args)` for `dotnet run -- migrate-tenants`,
 `AddHangfirePropagation`, `AddQuartzPropagation`, `AddMassTransitPropagation`, `AddRebusPropagation`,
 `BroadcastInvalidationsOverMassTransit`, `AddAuditLogging` and `CacheConnectionStrings`. Installation and each feature:
