@@ -147,7 +147,7 @@ rewriting by hand, such as a removed name the skills still use or lines that sti
 Tenantry Pro's removed names are in a private repository, so the Pro part of `scripts/removed-names.txt` is copied by
 hand after each Pro release.
 
-The workflow runs each Monday, and Tenantry Core's release workflow starts it for an X.Y.0 with a `tenantry-release`
+The workflow runs each Monday, and Tenantry Core's release workflow starts it with a `tenantry-release`
 repository_dispatch event. A release that nuget.org does not list yet is picked up by the next weekly run. A pull
 request opened with the workflow's token starts no other workflow, so the workflow runs both checks itself. It needs
 the repository's Actions setting that allows GitHub Actions to create pull requests. Once someone pushes to the pull
