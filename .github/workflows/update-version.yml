@@ -8,7 +8,8 @@ name: update-version
 # scripts/tenantry-version.txt and not in validate.yml.
 
 on:
-  # Sent by a Tenantry release, with client_payload {"package": "core" or "pro", "version": "X.Y.Z"}.
+  # Sent by a Tenantry Core release. The run reads the newest version from nuget.org, so the event's client_payload is
+  # not used.
   repository_dispatch:
     types: [tenantry-release]
   schedule:
@@ -42,9 +43,6 @@ jobs:
         with:
           persist-credentials: false
       - id: target
-        env:
-          PACKAGE: ${{ github.event.client_payload.package }}
-          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
         run: |
           current="$(tr -d '[:space:]' < scripts/tenantry-version.txt)"
           if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -52,7 +50,8 @@ jobs:
             exit 1
           fi
           # The newest stable Tenantry.Core on nuget.org.
-          core="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json \
+          core="$(curl --proto '=https' -fsSL --retry 3 \
+            https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json \
             | jq -r '.versions[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' | sort -V | tail -n 1)"
           if [[ -z "$core" ]]; then
             echo "::error::nuget.org lists no stable Tenantry.Core version."
@@ -60,21 +59,6 @@ jobs:
           fi
           # The skills pin Core and Pro to one version, and only an X.Y.0 is sure to exist for both.
           target="${core%.*}.0"
-          # Tenantry Pro's packages are on a private feed, so a Pro release gives its version in the event.
-          case "$PACKAGE" in
-            "" | core) ;;
-            pro)
-              if [[ ! "$PAYLOAD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "::error::The tenantry-release event's version is not X.Y.Z: $PAYLOAD_VERSION"
-                exit 1
-              fi
-              target="$(printf '%s\n' "$target" "${PAYLOAD_VERSION%.*}.0" | sort -V | tail -n 1)"
-              ;;
-            *)
-              echo "::error::The tenantry-release event's package is neither core nor pro: $PACKAGE"
-              exit 1
-              ;;
-          esac
           if [[ "$(printf '%s\n' "$current" "$target" | sort -V | tail -n 1)" == "$current" ]]; then
             echo "The skills target $current and the newest minor release is $target, so there is nothing to update."
             exit 0
@@ -140,7 +124,7 @@ jobs:
           list=scripts/removed-names.txt
           marker='^# .*update-version\.yml'
           grep -q "$marker" "$list" || { echo "::error::$list has no line naming update-version.yml."; exit 1; }
-          core_list="$(curl -fsSL --retry 3 \
+          core_list="$(curl --proto '=https' -fsSL --retry 3 \
             "https://raw.githubusercontent.com/tenantry-org/tenantry-core/v$CORE/eng/common/removed-names.txt")"
           {
             sed "/$marker/q" "$list"

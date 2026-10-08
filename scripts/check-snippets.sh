@@ -36,7 +36,8 @@ else
   version="${TENANTRY_VERSION:-$(tr -d '[:space:]' < "$repo/scripts/tenantry-version.txt")}"
   if [[ "${SKIP_UNPUBLISHED:-}" == 1 ]]; then
     # Skip only when nuget.org answers and does not list the version: a failed request fails the check.
-    if ! published="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json)"; then
+    if ! published="$(curl --proto '=https' -fsSL --retry 3 \
+      https://api.nuget.org/v3-flatcontainer/tenantry.core/index.json)"; then
       echo "::error::Could not read Tenantry.Core's versions from nuget.org." >&2
       exit 1
     fi

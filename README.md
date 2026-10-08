@@ -17,6 +17,19 @@ and [AGENTS.md](AGENTS.md) has the same guidance in one file for agents that rea
 | [`tenantry-audit-isolation`](plugins/tenantry/skills/tenantry-audit-isolation/SKILL.md) | Review an app that uses Tenantry for isolation gaps, with findings by file and line |
 | [`tenantry-pro`](plugins/tenantry/skills/tenantry-pro/SKILL.md) | Decide when Tenantry Pro, the paid package, applies, and set up each of its features |
 
+## Versions
+
+The skills are for Tenantry Core and Tenantry Pro 0.8 and later.
+
+Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.7 or earlier
+first: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names the skills use do not exist in them
+([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
+line pins `--version 0.8.0`, which makes NuGet install the release the skills are written for rather than whatever is
+newest. Once that succeeds, the skills tell the agent to update to the newest 0.8.x patch.
+
+When Tenantry releases a new minor version, a pull request here moves the skills to its X.Y.0. A patch needs no
+change.
+
 ## Install in Claude Code
 
 From your shell:
@@ -70,28 +83,16 @@ that format is accepted.
 For agents that read only an `AGENTS.md` (or `CLAUDE.md`), either point them at this repository's
 [AGENTS.md](AGENTS.md), or copy the short block at its end into your project's own file.
 
-## Versions
+## Reporting a mistake
 
-The skills are for Tenantry Core and Tenantry Pro 0.8 and later.
+If a skill tells an agent something that is wrong, or that does not work when followed, open an issue at
+https://github.com/tenantry-org/tenantry-agent-skills/issues with the skill's name, the Tenantry version, what the
+agent did and what happened. Problems with Tenantry itself go to
+https://github.com/tenantry-org/tenantry-core/issues.
 
-Every skill tells the agent to check the Tenantry version a project uses and to upgrade a project on 0.7 or earlier
-first: 0.7 and earlier have isolation gaps that 0.8 fixes, and some names the skills use do not exist in them
-([changelog](https://github.com/tenantry-org/tenantry-core/blob/master/CHANGELOG.md)). Every `dotnet add package`
-line pins `--version 0.8.0`, which makes NuGet install the release the skills are written for rather than whatever is
-newest. Once that succeeds, the skills tell the agent to update to the newest 0.8.x patch.
+## Maintaining the skills
 
-When Tenantry releases a new minor version, a pull request here moves the skills to its X.Y.0, which both Tenantry
-Core and Tenantry Pro publish. A patch needs no change, since the skills already tell the agent to update to the
-newest patch. The `update-version` workflow takes the minor version of the newest stable Tenantry.Core on nuget.org,
-or of the version a Tenantry Pro release gives, and compares its X.Y.0 with the release the skills target, in
-`scripts/tenantry-version.txt`. When it is newer, the workflow changes that file, every mention of the old version
-(which covers each pin) and each skill's `tenantry-version` to the new one, copies Tenantry Core's removed names into
-`scripts/removed-names.txt`, and runs both checks. The pull request reports their output. It opens as a draft when
-something needs rewriting by hand, such as a removed name the skills still use or lines that still name the old minor
-version. Tenantry Pro's removed names are in a private repository, so the Pro part of `scripts/removed-names.txt` is
-copied by hand after each Pro release.
-
-## Checking the skills
+### Checks
 
 ```bash
 node scripts/validate.mjs
@@ -130,24 +131,27 @@ folder of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks 
 `TENANTRY_PRO_PACKAGES` names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile`
 is skipped (another library's code, or a signature shown for its shape).
 
-CI runs both on every push and pull request, and each Monday, along with `shellcheck -S warning` on `scripts/*.sh`.
-While the docs tags or packages of the release the skills target are not published, the docs headings are checked by
-page name only and the code blocks are not built; each check prints a notice and starts checking on its own once they
-are. `claude plugin validate .` runs Claude Code's own checks.
+CI runs both on every push to master, on every pull request and each Monday, along with `shellcheck -S warning` on
+`scripts/*.sh`. While the docs tags or packages of the release the skills target are not published, the docs headings
+are checked by page name only and the code blocks are not built; each check prints a notice and starts checking on its
+own once they are. `claude plugin validate .` runs Claude Code's own checks.
 
-`.github/workflows/update-version.yml` opens the pull requests described under [Versions](#versions). It runs each
-Monday, and a release workflow can start it with a `tenantry-release` repository_dispatch event whose client_payload is
-`{"package": "core", "version": "0.9.0"}`, or `"pro"` for a Pro release. A Core release that nuget.org does not list
-yet is picked up by the next weekly run. A pull request opened with the workflow's token starts no other workflow, so
-the workflow runs both checks itself. It needs the repository's Actions setting that allows GitHub Actions to create
-pull requests. Once someone pushes to the pull request's branch, later runs leave that branch alone.
+### Moving to a new Tenantry release
 
-## Reporting a mistake
+`.github/workflows/update-version.yml` takes the minor version of the newest stable Tenantry.Core on nuget.org and
+compares its X.Y.0 with the release the skills target, in `scripts/tenantry-version.txt`. When it is newer, the
+workflow changes that file, every mention of the old version (which covers each pin) and each skill's
+`tenantry-version` to the new one, copies Tenantry Core's removed names into `scripts/removed-names.txt`, runs both
+checks, and opens a pull request that reports their output. The pull request opens as a draft when something needs
+rewriting by hand, such as a removed name the skills still use or lines that still name the old minor version.
+Tenantry Pro's removed names are in a private repository, so the Pro part of `scripts/removed-names.txt` is copied by
+hand after each Pro release.
 
-If a skill tells an agent something that is wrong, or that does not work when followed, open an issue at
-https://github.com/tenantry-org/tenantry-agent-skills/issues with the skill's name, the Tenantry version, what the
-agent did and what happened. Problems with Tenantry itself go to
-https://github.com/tenantry-org/tenantry-core/issues.
+The workflow runs each Monday, and Tenantry Core's release workflow starts it for an X.Y.0 with a `tenantry-release`
+repository_dispatch event. A release that nuget.org does not list yet is picked up by the next weekly run. A pull
+request opened with the workflow's token starts no other workflow, so the workflow runs both checks itself. It needs
+the repository's Actions setting that allows GitHub Actions to create pull requests. Once someone pushes to the pull
+request's branch, later runs leave that branch alone.
 
 ## Licence
 
