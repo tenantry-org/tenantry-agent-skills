@@ -152,6 +152,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+          cache: true
       - run: dotnet restore --locked-mode
       - run: dotnet build --no-restore
       - run: dotnet test --no-build
