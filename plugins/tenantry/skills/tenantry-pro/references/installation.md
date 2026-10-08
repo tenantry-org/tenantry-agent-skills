@@ -109,6 +109,33 @@ With a lock file, every restore gets exactly the packages last restored. Turn it
 CI then restores with `dotnet restore --locked-mode`, which fails rather than resolve anything the lock file does not
 name. After updating a package, restore without `--locked-mode` and commit the lock files it rewrites.
 
+## When the package feed is unreachable
+
+A restore downloads from tenantry.dev each Pro package that is not already in NuGet's global packages folder, so it
+fails while the feed cannot be reached. Two setups keep CI restoring without the feed:
+
+- Lock files, with the global packages folder kept between runs. A locked restore downloads nothing from the feed
+  when every package the lock files name is already in the folder. The folder is `~/.nuget/packages`, unless
+  `NUGET_PACKAGES` names another. In GitHub Actions, `actions/setup-dotnet` with `cache: true` keeps it, keyed on the
+  lock files. Without lock files, a floating version such as `0.8.*` needs the feed's version list.
+- A package mirror inside the user's organisation, with `Tenantry.Pro` and `Tenantry.Pro.*` mapped to it in place of the
+  `TenantryPro` source.
+
+NuGet's vulnerability audit still reads the feed's service index, and warns `NU1900` when it cannot. That fails the
+restore when warnings are errors. The feed publishes no vulnerability data, so with the .NET 9.0.100 SDK or later
+(NuGet 6.12) keep the audit to nuget.org by adding this to the `nuget.config`'s `<configuration>`:
+
+```xml
+<auditSources>
+  <clear />
+  <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+</auditSources>
+```
+
+The .NET 8 SDK ignores `<auditSources>`. There, add `<WarningsNotAsErrors>NU1900</WarningsNotAsErrors>` to a
+`<PropertyGroup>` in `Directory.Build.props` instead, which keeps the warning without failing the restore. Details:
+https://tenantry.dev/docs/pro/installation#when-the-package-feed-is-unreachable.
+
 ## CI
 
 The pipeline needs a feed token of its own to restore, and the key for anything that starts the application. The user
@@ -165,6 +192,7 @@ The `env=` option of a secret mount needs the Dockerfile syntax the first line s
 | Symptom | Likely cause |
 |---------|--------------|
 | `NU1301` with `401 (Unauthorized)` for a `tenantry.dev` address | The feed received no live token: `TENANTRY_FEED_TOKEN` is not set in this shell or CI step, has a trailing newline, or names a token revoked on the Pro access page |
+| `NU1301` for a `tenantry.dev` address with no HTTP status, or `NU1900` | The package feed could not be reached ([above](#when-the-package-feed-is-unreachable)) |
 | `NU1301` with `403 (Forbidden)` for a `tenantry.dev` address | The token belongs to a subscription that has ended with no vested releases |
 | `NU1102: Unable to find package Tenantry.Pro with version`, with versions found in `TenantryPro` | That version is not served to this subscription (after it ended, a release past the vested-through date) or does not exist |
 | `NU1101: Unable to find package Tenantry.Pro` naming only nuget.org | The `TenantryPro` source or its mapping is missing, or another `nuget.config` with `<clear />` wins (`dotnet nuget list source`) |
