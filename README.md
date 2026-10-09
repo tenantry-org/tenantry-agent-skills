@@ -142,6 +142,12 @@ yet is picked up by the next weekly run. A pull request opened with the workflow
 the workflow runs both checks itself. It needs the repository's Actions setting that allows GitHub Actions to create
 pull requests. Once someone pushes to the pull request's branch, later runs leave that branch alone.
 
+The skills for a new minor can be written ahead of its release on a branch named `tenantry-X.Y`, as `tenantry-0.8` is
+for 0.8.0. Merge master into that branch whenever master moves on, and fast-forward master to it just before or just
+after the release reaches nuget.org. The workflow then finds `scripts/tenantry-version.txt` already at X.Y.0 and opens
+nothing. If its pull request opened first, close it and fast-forward anyway, since that pull request only puts the new
+numbers into the old text.
+
 ## Reporting a mistake
 
 If a skill tells an agent something that is wrong, or that does not work when followed, open an issue at
