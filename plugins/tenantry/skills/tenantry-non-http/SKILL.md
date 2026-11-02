@@ -2,7 +2,7 @@
 name: tenantry-non-http
 description: Runs code as a Tenantry tenant outside HTTP requests, in workers, BackgroundService and hosted services, queue consumers, scheduled jobs, console tools and desktop apps. Use when Tenantry work has no request, or a job or worker loses its tenant.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10. Tenantry 0.8 or later.
+compatibility: .NET 8, 9, 10 or 11. Tenantry 0.8 or later.
 metadata:
   tenantry-version: "0.8"
 ---

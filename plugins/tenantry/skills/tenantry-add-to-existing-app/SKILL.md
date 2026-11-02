@@ -2,7 +2,7 @@
 name: tenantry-add-to-existing-app
 description: Adds Tenantry multi-tenancy to an existing ASP.NET Core app that uses EF Core, isolating each tenant's rows in one shared database by a TenantId column. Use when making an existing .NET web app or API multi-tenant, or scoping its EF Core data per customer, organisation or account.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
+compatibility: .NET 8, 9, 10 or 11 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
   tenantry-version: "0.8"
 ---
