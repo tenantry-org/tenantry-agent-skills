@@ -158,10 +158,13 @@ the repository's Actions setting that allows GitHub Actions to create pull reque
 request's branch, later runs leave that branch alone.
 
 The skills for a new minor can be written ahead of its release on a branch named `tenantry-X.Y`, as `tenantry-0.8` is
-for 0.8.0. Merge master into that branch whenever master moves on, and fast-forward master to it just before or just
-after the release reaches nuget.org. The workflow then finds `scripts/tenantry-version.txt` already at X.Y.0 and opens
-nothing. If its pull request opened first, close it and fast-forward anyway, since that pull request only puts the new
-numbers into the old text.
+for 0.8.0. Merge master into that branch whenever master moves on, Dependabot's updates included, so that master stays
+an ancestor of it and can be fast-forwarded: `git merge-base --is-ancestor master tenantry-X.Y` exits 0 when it is.
+Fast-forward master to the branch once Tenantry Core's X.Y.0 is on nuget.org and Tenantry Pro's X.Y.0 is on the
+package feed at tenantry.dev, as the tenantry-pro skill tells users to install Pro's X.Y.0 from that feed. If the
+workflow has not run by then, it finds `scripts/tenantry-version.txt` already at X.Y.0 and opens nothing. If its pull
+request opened first, close it and fast-forward anyway, since that pull request only puts the new numbers into the old
+text.
 
 ## Licence
 
