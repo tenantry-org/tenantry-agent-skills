@@ -129,12 +129,16 @@ without an access validator, since TNY2001 reports nothing once any block in the
 per-block check in `validate.mjs` covers that. It builds against the release the skills target from nuget.org, or a
 folder of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when
 `TENANTRY_PRO_PACKAGES` names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile`
-is skipped (another library's code, or a signature shown for its shape).
+is skipped (another library's code, or a signature shown for its shape). A block that starts with using directives is
+built with only those, as a reader's file would be, so one that leaves out a namespace it needs fails. Any other block
+is a fragment, and is built with the using directives of the other blocks on its page and the `Tenantry` and
+`Microsoft.EntityFrameworkCore` namespaces (and `Tenantry.Pro` in the tenantry-pro skill).
 
-CI runs both on every push to master, on every pull request and each Monday, along with `shellcheck -S warning` on
-`scripts/*.sh`. While the docs tags or packages of the release the skills target are not published, the docs headings
-are checked by page name only and the code blocks are not built; each check prints a notice and starts checking on its
-own once they are. `claude plugin validate .` runs Claude Code's own checks.
+CI runs both on every push to master or a `tenantry-X.Y` branch, on every pull request and each Monday, along with
+`shellcheck -S warning` on `scripts/*.sh`. While the docs tags of the release the skills target are not published,
+the docs headings are checked by page name only. While its packages are not on nuget.org, the code blocks are built
+against its newest prerelease there, and are not built if it has none. Each check prints a notice and checks against
+the release on its own once it is out. `claude plugin validate .` runs Claude Code's own checks.
 
 ### Moving to a new Tenantry release
 

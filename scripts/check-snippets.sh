@@ -12,8 +12,9 @@
 #                            an unreleased version packed from source; TENANTRY_VERSION is then read from it
 #   TENANTRY_PRO_PACKAGES    a folder of Tenantry Pro packages. Only with it are the tenantry-pro skill's blocks built,
 #                            since the Pro packages are on a private feed
-#   SKIP_UNPUBLISHED=1       exit successfully, with a notice, when TENANTRY_VERSION is not on nuget.org yet (CI uses
-#                            this until the version the skills target is released)
+#   SKIP_UNPUBLISHED=1       when TENANTRY_VERSION is not on nuget.org yet, build against its newest prerelease there,
+#                            or exit successfully with a notice when it has none (CI uses this until the version the
+#                            skills target is released)
 #
 # Mark a block that is not meant to compile (another library's code, or only the shape of something) with
 # ```csharp no-compile.
@@ -41,9 +42,17 @@ else
       echo "::error::Could not read Tenantry.Core's versions from nuget.org." >&2
       exit 1
     fi
-    if ! grep -q "\"$version\"" <<< "$published"; then
-      echo "::notice::Tenantry.Core $version is not on nuget.org yet, so the skills' code blocks were not built."
-      exit 0
+    if ! grep -q "\"${version//./\\.}\"" <<< "$published"; then
+      # The skills for a release are written before it is out, so build them against its newest prerelease: a change
+      # in Tenantry that breaks a block then fails here, not after the release.
+      prerelease="$(grep -o "\"${version//./\\.}-[^\"]*\"" <<< "$published" | tr -d '"' | sort -V | tail -n 1)"
+      if [[ -z "$prerelease" ]]; then
+        echo "::notice::nuget.org has no Tenantry.Core $version or prerelease of it yet," \
+          "so the code blocks were not built."
+        exit 0
+      fi
+      echo "::notice::Tenantry.Core $version is not on nuget.org yet, so the code blocks are built against $prerelease."
+      version="$prerelease"
     fi
   fi
 fi

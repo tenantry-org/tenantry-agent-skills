@@ -2,7 +2,8 @@ name: validate
 
 on:
   push:
-    branches: [master]
+    # A tenantry-X.Y branch holds the skills for a release before it is out, and is checked like master.
+    branches: [master, "tenantry-*"]
   pull_request:
   schedule:
     - cron: "0 5 * * 1"   # Mondays, 05:00 UTC, so the checks that wait for a release start without a commit
@@ -55,7 +56,7 @@ jobs:
           dotnet-version: 10.0.x
       # Builds the Tenantry Core blocks against the packages on nuget.org. The tenantry-pro skill's blocks need the Pro
       # packages, which are on a private feed, so they are built locally (scripts/check-snippets.sh). Until the release
-      # the skills target is on nuget.org, this prints a notice and passes.
+      # the skills target is on nuget.org, this builds against its newest prerelease there, with a notice.
       - run: scripts/check-snippets.sh
         env:
           SKIP_UNPUBLISHED: 1
