@@ -129,12 +129,16 @@ without an access validator, since TNY2001 reports nothing once any block in the
 per-block check in `validate.mjs` covers that. It builds against the release the skills target from nuget.org, or a
 folder of packages in `TENANTRY_CORE_PACKAGES`. The tenantry-pro skill's blocks are built only when
 `TENANTRY_PRO_PACKAGES` names a folder of Pro packages, as Pro is on a private feed. A block marked `csharp no-compile`
-is skipped (another library's code, or a signature shown for its shape).
+is skipped (another library's code, or a signature shown for its shape). A block that starts with using directives is
+built with only those, as a reader's file would be, so one that leaves out a namespace it needs fails. Any other block
+is a fragment, and is built with the using directives of the other blocks on its page and the `Tenantry` and
+`Microsoft.EntityFrameworkCore` namespaces (and `Tenantry.Pro` in the tenantry-pro skill).
 
-CI runs both on every push to master, on every pull request and each Monday, along with `shellcheck -S warning` on
-`scripts/*.sh`. While the docs tags or packages of the release the skills target are not published, the docs headings
-are checked by page name only and the code blocks are not built; each check prints a notice and starts checking on its
-own once they are. `claude plugin validate .` runs Claude Code's own checks.
+CI runs both on every push to master or a `tenantry-X.Y` branch, on every pull request and each Monday, along with
+`shellcheck -S warning` on `scripts/*.sh`. While the docs tags of the release the skills target are not published,
+the docs headings are checked by page name only. While its packages are not on nuget.org, the code blocks are built
+against its newest prerelease there, and are not built if it has none. Each check prints a notice and checks against
+the release on its own once it is out. `claude plugin validate .` runs Claude Code's own checks.
 
 ### Moving to a new Tenantry release
 
@@ -154,10 +158,13 @@ the repository's Actions setting that allows GitHub Actions to create pull reque
 request's branch, later runs leave that branch alone.
 
 The skills for a new minor can be written ahead of its release on a branch named `tenantry-X.Y`, as `tenantry-0.8` is
-for 0.8.0. Merge master into that branch whenever master moves on, and fast-forward master to it just before or just
-after the release reaches nuget.org. The workflow then finds `scripts/tenantry-version.txt` already at X.Y.0 and opens
-nothing. If its pull request opened first, close it and fast-forward anyway, since that pull request only puts the new
-numbers into the old text.
+for 0.8.0. Merge master into that branch whenever master moves on, Dependabot's updates included, so that master stays
+an ancestor of it and can be fast-forwarded: `git merge-base --is-ancestor master tenantry-X.Y` exits 0 when it is.
+Fast-forward master to the branch once Tenantry Core's X.Y.0 is on nuget.org and Tenantry Pro's X.Y.0 is on the
+package feed at tenantry.dev, as the tenantry-pro skill tells users to install Pro's X.Y.0 from that feed. If the
+workflow has not run by then, it finds `scripts/tenantry-version.txt` already at X.Y.0 and opens nothing. If its pull
+request opened first, close it and fast-forward anyway, since that pull request only puts the new numbers into the old
+text.
 
 ## Licence
 

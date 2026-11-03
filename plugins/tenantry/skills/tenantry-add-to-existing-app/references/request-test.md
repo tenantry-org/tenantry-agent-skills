@@ -21,7 +21,7 @@ dotnet add tests/MyApp.Tests package Microsoft.AspNetCore.Mvc.Testing --version 
 ```
 
 On .NET 8 and 9, add `public partial class Program;` at the end of the app's `Program.cs` so the test can name it
-(.NET 10 makes the generated `Program` public).
+(.NET 10 and later make the generated `Program` public).
 
 ## The test
 

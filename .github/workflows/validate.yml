@@ -2,7 +2,8 @@ name: validate
 
 on:
   push:
-    branches: [master]
+    # A tenantry-X.Y branch holds the skills for a release before it is out, and is checked like master.
+    branches: [master, "tenantry-*"]
   pull_request:
   schedule:
     - cron: "0 5 * * 1"   # Mondays, 05:00 UTC, so the checks that wait for a release start without a commit
@@ -28,7 +29,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       # The release the skills target is in scripts/tenantry-version.txt, which update-version.yml raises when a newer
@@ -55,7 +56,7 @@ jobs:
           dotnet-version: 10.0.x
       # Builds the Tenantry Core blocks against the packages on nuget.org. The tenantry-pro skill's blocks need the Pro
       # packages, which are on a private feed, so they are built locally (scripts/check-snippets.sh). Until the release
-      # the skills target is on nuget.org, this prints a notice and passes.
+      # the skills target is on nuget.org, this builds against its newest prerelease there, with a notice.
       - run: scripts/check-snippets.sh
         env:
           SKIP_UNPUBLISHED: 1

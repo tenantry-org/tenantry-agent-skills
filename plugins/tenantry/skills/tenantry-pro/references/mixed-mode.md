@@ -53,7 +53,8 @@ connects to the database `UseConnectionStrings` returns, and schema tenants' mod
 - `GetIsolation` must be fast and give the same answer for a tenant every time. Moving a tenant to another isolation
   means moving its data, which Tenantry does not do, so branch on something fixed at creation, not on the plan.
 - For `Shared` tenants, every entity type of the context must implement `ITenantEntity<TKey>` or be marked shared with
-  `[SharedAcrossTenants]` or `modelBuilder.Entity<T>().IsSharedAcrossTenants()` (namespace `Tenantry.EfCore`).
+  `[SharedAcrossTenants]` (namespace `Tenantry`) or `modelBuilder.Entity<T>().IsSharedAcrossTenants()`, which needs
+  only `using Microsoft.EntityFrameworkCore;`.
   Otherwise the context throws `TenantIsolationViolationException` (`ModelConfiguration`) for a `Shared` tenant, and the
   host logs a warning at startup naming the types.
 - `UseSchemaPerTenant`, `AddMigrations`, `AddAuditLogging` and Tenantry.Pro.EfCore's provisioning and offboarding

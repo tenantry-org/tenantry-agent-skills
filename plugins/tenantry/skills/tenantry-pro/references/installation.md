@@ -69,7 +69,9 @@ dotnet add package Tenantry.Pro.EfCore --version 0.8.0 # schema per tenant, prov
 
 `--version 0.8.0` makes NuGet install 0.8.0 exactly, the lowest version that satisfies it. If a command fails with
 NU1102, stop and tell the user. Do not install an older version, and do not remove `--version`. Once it succeeds,
-update every Tenantry and Tenantry Pro package to the newest 0.8.x patch: `dotnet list package --outdated` lists it.
+update every Tenantry and Tenantry Pro package to the newest 0.8.x patch, which
+`dotnet list package --outdated --highest-patch` lists. Without `--highest-patch` it lists the newest release of any
+minor, and Pro 0.8 needs Tenantry Core 0.8.
 
 The integrations are `Tenantry.Pro.Hangfire`, `Tenantry.Pro.Quartz`, `Tenantry.Pro.MassTransit` and
 `Tenantry.Pro.Rebus`. Pro's version must match Tenantry Core's minor version.
@@ -95,106 +97,14 @@ User secrets are read only in the `Development` environment. Elsewhere, set the 
 `Tenantry__License` or use the secrets vault's configuration provider. When the key comes from somewhere configuration
 cannot read, pass it with `pro.UseLicenseKey(key)`. The key is checked offline, at startup.
 
-## Lock files
+## Lock files, CI, Docker and restore errors
 
-With a lock file, every restore gets exactly the packages last restored. Turn it on for each project, for example in
-`Directory.Build.props`, and commit the `packages.lock.json` files the next restore writes:
+Follow the guide for these. It changes with the package feed, so this reference does not copy it:
 
-```xml
-<PropertyGroup>
-  <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-</PropertyGroup>
-```
-
-CI then restores with `dotnet restore --locked-mode`, which fails rather than resolve anything the lock file does not
-name. After updating a package, restore without `--locked-mode` and commit the lock files it rewrites.
-
-## When the package feed is unreachable
-
-A restore downloads from tenantry.dev each Pro package that is not already in NuGet's global packages folder, so it
-fails while the feed cannot be reached. Two setups keep CI restoring without the feed:
-
-- Lock files, with the global packages folder kept between runs. A locked restore downloads nothing from the feed
-  when every package the lock files name is already in the folder. The folder is `~/.nuget/packages`, unless
-  `NUGET_PACKAGES` names another. In GitHub Actions, `actions/setup-dotnet` with `cache: true` keeps it, keyed on the
-  lock files. Without lock files, a floating version such as `0.8.*` needs the feed's version list.
-- A package mirror inside the user's organisation, with `Tenantry.Pro` and `Tenantry.Pro.*` mapped to it in place of the
-  `TenantryPro` source.
-
-NuGet's vulnerability audit still reads the feed's service index, and warns `NU1900` when it cannot. That fails the
-restore when warnings are errors. The feed publishes no vulnerability data, so with the .NET 9.0.100 SDK or later
-(NuGet 6.12) keep the audit to nuget.org by adding this to the `nuget.config`'s `<configuration>`:
-
-```xml
-<auditSources>
-  <clear />
-  <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-</auditSources>
-```
-
-The .NET 8 SDK ignores `<auditSources>`. There, add `<WarningsNotAsErrors>NU1900</WarningsNotAsErrors>` to a
-`<PropertyGroup>` in `Directory.Build.props` instead, which keeps the warning without failing the restore. Details:
-https://tenantry.dev/docs/pro/installation#when-the-package-feed-is-unreachable.
-
-## CI
-
-The pipeline needs a feed token of its own to restore, and the key for anything that starts the application. The user
-creates a token for it on the Pro access page and stores both as secrets:
-
-```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      TENANTRY_FEED_TOKEN: ${{ secrets.TENANTRY_FEED_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-          cache: true
-      - run: dotnet restore --locked-mode
-      - run: dotnet build --no-restore
-      - run: dotnet test --no-build
-        env:
-          Tenantry__License: ${{ secrets.TENANTRY_LICENSE }}
-```
-
-A build that writes its own `nuget.config` without the credentials can pass them in the environment variable
-`NuGetPackageSourceCredentials_TenantryPro`, set to `Username=tenantry;Password=<the feed token>`. That name is why
-the source's key has no hyphen: a shell cannot export a variable whose name has one.
-
-## Docker builds
-
-Pass the token as a build secret, not a build argument, which the image's history keeps. Copy the files restore reads
-(`nuget.config`, any `Directory.Build.props` and `Directory.Packages.props`, the project and its lock file) before the
-rest of the source, so Docker reuses the restore until one of them changes:
-
-```dockerfile
-# syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-COPY nuget.config Directory.*.props ./
-COPY src/MyApp/MyApp.csproj src/MyApp/packages.lock.json src/MyApp/
-RUN --mount=type=secret,id=tenantry_feed_token,env=TENANTRY_FEED_TOKEN \
-    dotnet restore src/MyApp --locked-mode
-COPY . .
-RUN dotnet publish src/MyApp -c Release --no-restore -o /app
-```
-
-```bash
-docker build --secret id=tenantry_feed_token,env=TENANTRY_FEED_TOKEN .
-```
-
-The `env=` option of a secret mount needs the Dockerfile syntax the first line selects.
-
-## Troubleshooting
-
-| Symptom | Likely cause |
-|---------|--------------|
-| `NU1301` with `401 (Unauthorized)` for a `tenantry.dev` address | The feed received no live token: `TENANTRY_FEED_TOKEN` is not set in this shell or CI step, has a trailing newline, or names a token revoked on the Pro access page |
-| `NU1301` for a `tenantry.dev` address with no HTTP status, or `NU1900` | The package feed could not be reached ([above](#when-the-package-feed-is-unreachable)) |
-| `NU1301` with `403 (Forbidden)` for a `tenantry.dev` address | The token belongs to a subscription that has ended with no vested releases |
-| `NU1102: Unable to find package Tenantry.Pro with version`, with versions found in `TenantryPro` | That version is not served to this subscription (after it ended, a release past the vested-through date) or does not exist |
-| `NU1101: Unable to find package Tenantry.Pro` naming only nuget.org | The `TenantryPro` source or its mapping is missing, or another `nuget.config` with `<clear />` wins (`dotnet nuget list source`) |
-| `LicenseRequiredException` at startup | No key reached `Tenantry:License`, or it was mistyped |
+- Lock files: https://tenantry.dev/docs/pro/installation#5-turn-on-lock-files
+- CI, which needs a feed token of its own and the key as secrets: https://tenantry.dev/docs/pro/installation#ci
+- Docker builds, which take the token as a build secret: https://tenantry.dev/docs/pro/installation#docker-builds
+- A restore that cannot reach the feed, or fails on `NU1900`:
+  https://tenantry.dev/docs/pro/installation#when-the-package-feed-is-unreachable
+- `NU1301`, `NU1101` or `NU1102` from a restore, or `LicenseRequiredException` at startup:
+  https://tenantry.dev/docs/pro/installation#troubleshooting

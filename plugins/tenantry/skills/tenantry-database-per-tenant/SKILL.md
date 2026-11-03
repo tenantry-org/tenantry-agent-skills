@@ -2,7 +2,7 @@
 name: tenantry-database-per-tenant
 description: Gives each tenant its own database with Tenantry Core, connecting every EF Core DbContext to the current tenant's database. Use when the user wants a database or connection string per tenant in a .NET app.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
+compatibility: .NET 8, 9, 10 or 11 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
   tenantry-version: "0.8"
 ---

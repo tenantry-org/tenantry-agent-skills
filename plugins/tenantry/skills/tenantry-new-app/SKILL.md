@@ -2,7 +2,7 @@
 name: tenantry-new-app
 description: Creates a new multi-tenant ASP.NET Core API or .NET worker with Tenantry and EF Core from the start. Use when starting a new SaaS backend or tenant-aware .NET service, or asked for a Tenantry starter.
 license: Apache-2.0
-compatibility: .NET 8, 9 or 10 with the EF Core major of the target framework. Tenantry 0.8 or later.
+compatibility: .NET 8, 9, 10 or 11 with the EF Core major of the target framework. Tenantry 0.8 or later.
 metadata:
   tenantry-version: "0.8"
 ---

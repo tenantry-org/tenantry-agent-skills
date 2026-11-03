@@ -38,10 +38,11 @@ that reads a tenant-owned entity as TNY1002 (a warning). Where the code is meant
 occurrence with a reason (`#pragma warning disable TNY1002 // the admin report counts every tenant's orders`);
 otherwise fix it.
 
-`IgnoreQueryFilters()` removes every filter on that query. On EF Core 10, remove only the tenant filter and keep your
-own (soft delete, say):
+`IgnoreQueryFilters()` removes every filter on that query. On EF Core 10 or later, remove only the tenant filter and
+keep your own (soft delete, say):
 
 ```csharp
+using Microsoft.EntityFrameworkCore;
 using Tenantry.EfCore;
 
 #pragma warning disable TNY1002 // the admin report reads every tenant's orders

@@ -7,8 +7,10 @@
 // "core" writes the blocks of every page except the tenantry-pro skill's, "pro" only that skill's, since the Pro
 // packages come from a private feed. Each block becomes one file, with #line directives so that compiler errors point
 // at the markdown:
-//   - It gets the using directives of every block on its page: a page names each namespace its code needs once,
-//     in whichever block reads best.
+//   - A block that starts with using directives is a whole file, as a reader copies it, and gets only those. Any
+//     other block is a fragment: it gets the using directives of every block on its page (a page names each
+//     namespace its code needs once, in whichever block reads best), and Tenantry's and EF Core's namespaces (and
+//     Tenantry.Pro's in the tenantry-pro skill), which a fragment's file would already have.
 //   - Its types go into a namespace of its own, nested in the namespace of the block before it on the page: a later
 //     block sees the types an earlier one declared, and a block can declare its own AppDbContext as an alternative
 //     to an earlier one (the nearest declaration wins). A block also sees, through aliases, the types that only a
@@ -50,6 +52,9 @@ var pages = new[] { Path.Combine(repo, "AGENTS.md"), Path.Combine(repo, "README.
     .ToList();
 
 var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
+string[] fragmentUsings = pro
+    ? ["using Microsoft.EntityFrameworkCore;", "using Tenantry;", "using Tenantry.Pro;"]
+    : ["using Microsoft.EntityFrameworkCore;", "using Tenantry;"];
 int written = 0, skipped = 0;
 
 foreach (var (page, pageNumber) in pages.Select((page, index) => (page, index + 1)))
@@ -58,6 +63,7 @@ foreach (var (page, pageNumber) in pages.Select((page, index) => (page, index + 
     var pageUsings = blocks.Where(block => !block.Skip)
         .SelectMany(block => CSharpSyntaxTree.ParseText(block.Code, parseOptions).GetCompilationUnitRoot().Usings)
         .Select(directive => directive.ToString())
+        .Concat(fragmentUsings)
         .Distinct()
         .ToList();
     // Each compiled block's namespace, and the non-generic types it declares.
@@ -131,9 +137,11 @@ string Generate(Block block, string ns, IReadOnlyList<string> pageUsings, IReadO
         return file.ToString();
     }
 
-    var own = root.Usings.Select(directive => directive.ToString()).ToList();
-    foreach (var shared in pageUsings.Except(own))
-        Line(shared);
+    // A block with using directives of its own is compiled with only those, so one that leaves out a namespace it
+    // needs fails here as it would in the reader's file.
+    if (root.Usings.Count == 0)
+        foreach (var shared in pageUsings)
+            Line(shared);
     foreach (var directive in root.Usings)
         Mapped(directive);
     foreach (var alias in root.Externs)

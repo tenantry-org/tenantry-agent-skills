@@ -93,6 +93,7 @@ token, which changes no column. If the migration:
   and so the snapshot, has `TenantId` as a concurrency token as the app's does:
 
   ```csharp
+  using Microsoft.EntityFrameworkCore;
   using Microsoft.EntityFrameworkCore.Design;
 
   public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
@@ -105,7 +106,7 @@ token, which changes no column. If the migration:
   ```
 
   Without a factory, `dotnet ef` builds the app's host and uses its registration, which already calls `UseTenantry()`.
-- Code that ignored Finbuckle's named filter names `TenantryQueryFilters.Tenant` instead (EF Core 10).
+- Code that ignored Finbuckle's named filter names `TenantryQueryFilters.Tenant` instead (EF Core 10 or later).
 - Code that created a context per tenant with Finbuckle's static `Create` uses
   `ITenantScopeFactory<string>.CreateScope(tenant)` and resolves the context from the scope. Like `Create`, it trusts
   the tenant it is given; code that has only an id uses `RunInScopeAsync`, which looks it up.

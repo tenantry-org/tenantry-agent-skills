@@ -57,8 +57,8 @@ Search: `IgnoreQueryFilters`.
 
 - High: used in code a tenant's user can reach (an endpoint without an admin authorization policy), or followed by
   `ExecuteUpdate` or `ExecuteDelete` outside deliberate maintenance code.
-- Medium: used where only another filter should be removed; on EF Core 10, `IgnoreQueryFilters([TenantryQueryFilters.Tenant])`
-  or naming your own filter is narrower.
+- Medium: used where only another filter should be removed; on EF Core 10 or later,
+  `IgnoreQueryFilters([TenantryQueryFilters.Tenant])` or naming your own filter is narrower.
 - Check shared helpers and repositories that return `IQueryable` with the filters already removed.
 
 ## 5. Resolution and access validation

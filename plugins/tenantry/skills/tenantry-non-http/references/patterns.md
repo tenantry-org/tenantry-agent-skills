@@ -156,7 +156,8 @@ Read across tenants with `IgnoreQueryFilters()` on that query. Write as each ten
 For maintenance code that must write without a tenant, give it a context of its own:
 
 ```csharp
-using Tenantry.EfCore;
+using Microsoft.EntityFrameworkCore;
+using Tenantry;
 
 builder.Services.AddDbContext<MaintenanceDbContext>(options => options
     .UseSqlServer(connectionString)

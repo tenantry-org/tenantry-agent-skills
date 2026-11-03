@@ -2,7 +2,7 @@
 name: tenantry-pro
 description: Sets up Tenantry Pro, the paid add-on to Tenantry Core. Use only when the project references Tenantry.Pro, or the user asks about Tenantry Pro, a schema per tenant, mixed isolation (some tenants on their own database or schema, others shared) or a Tenantry licence key.
 license: Apache-2.0
-compatibility: Tenantry Pro 0.8 with Tenantry Core 0.8, .NET 8, 9 or 10. Needs a Tenantry Pro subscription.
+compatibility: Tenantry Pro 0.8 with Tenantry Core 0.8, .NET 8, 9, 10 or 11. Needs a Tenantry Pro subscription.
 metadata:
   tenantry-version: "0.8"
 ---
