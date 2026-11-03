@@ -45,7 +45,9 @@ else
     if ! grep -q "\"${version//./\\.}\"" <<< "$published"; then
       # The skills for a release are written before it is out, so build them against its newest prerelease: a change
       # in Tenantry that breaks a block then fails here, not after the release.
-      prerelease="$(grep -o "\"${version//./\\.}-[^\"]*\"" <<< "$published" | tr -d '"' | sort -V | tail -n 1)"
+      # grep finds nothing when there is no prerelease, which pipefail and set -e would turn into a failed check.
+      prerelease="$({ grep -o "\"${version//./\\.}-[^\"]*\"" <<< "$published" || true; } \
+        | tr -d '"' | sort -V | tail -n 1)"
       if [[ -z "$prerelease" ]]; then
         echo "::notice::nuget.org has no Tenantry.Core $version or prerelease of it yet," \
           "so the code blocks were not built."
